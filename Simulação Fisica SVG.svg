@@ -1,0 +1,531 @@
+<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" tabindex="0" id="svgRaiz">
+  <defs>
+    <!-- Gradiente do céu -->
+    <linearGradient id="ceuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E90FF" />
+      <stop offset="40%" stop-color="#87CEEB" />
+      <stop offset="100%" stop-color="#B0E0E6" />
+    </linearGradient>
+
+    <!-- Gradiente do gramado -->
+    <linearGradient id="gramadoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#228B22" />
+      <stop offset="30%" stop-color="#32CD32" />
+      <stop offset="100%" stop-color="#7CFC00" />
+    </linearGradient>
+
+    <!-- Nuvem modelo -->
+    <g id="nuvemModelo">
+      <ellipse cx="0" cy="0" rx="60" ry="25" fill="white" opacity="0.9" />
+      <ellipse cx="-30" cy="5" rx="40" ry="20" fill="white" opacity="0.9" />
+      <ellipse cx="30" cy="5" rx="45" ry="20" fill="white" opacity="0.9" />
+      <ellipse cx="-15" cy="-15" rx="35" ry="18" fill="white" opacity="0.9" />
+      <ellipse cx="15" cy="-15" rx="35" ry="18" fill="white" opacity="0.9" />
+    </g>
+
+    <!-- Clip para a trajetória -->
+    <clipPath id="clipTrajetoria">
+      <rect x="0" y="0" width="800" height="500" />
+    </clipPath>
+
+    <!-- Clip para as linhas de perspectiva (apenas o chão) -->
+    <clipPath id="clipChao">
+      <rect x="0" y="420" width="800" height="80" />
+    </clipPath>
+  </defs>
+
+  <!-- Céu fixo -->
+  <rect width="800" height="420" fill="url(#ceuGrad)" />
+
+  <!-- Contêiner para nuvens dinâmicas -->
+  <g id="nuvensContainer"></g>
+
+  <!-- Gramado fixo (fundo) -->
+  <rect x="0" y="420" width="800" height="80" fill="url(#gramadoGrad)" />
+
+  <!-- Linhas de perspectiva dinâmicas com clip no chão -->
+  <g clip-path="url(#clipChao)" id="linhasPerspectiva"></g>
+
+  <!-- Linha do horizonte fixa -->
+  <line x1="0" y1="420" x2="800" y2="420" stroke="#006400" stroke-width="3" stroke-linecap="round" />
+  <line x1="0" y1="500" x2="800" y2="500" stroke="#006400" stroke-width="4" />
+
+  <!-- Trajetória tracejada com clip -->
+  <g clip-path="url(#clipTrajetoria)">
+    <path id="trajetoriaPath" d="" fill="none" stroke="#FF4500" stroke-width="2" stroke-dasharray="6,4" opacity="0.9" />
+  </g>
+
+  <!-- Régua vertical fixa (0 a 10 metros) -->
+  <g id="reguaVertical">
+    <!-- Fundo semi-transparente para melhor legibilidade -->
+    <rect x="10" y="20" width="18" height="400" fill="rgba(255,255,255,0.6)" rx="2" />
+    <rect x="10" y="20" width="18" height="400" fill="none" stroke="#333" stroke-width="1.5" rx="2" />
+    
+    <!-- Traços e números a cada metro -->
+    <!-- 0m (chão) -->
+    <line x1="28" y1="420" x2="35" y2="420" stroke="#333" stroke-width="2" />
+    <text x="22" y="420" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">0</text>
+    
+    <!-- 1m -->
+    <line x1="28" y1="380" x2="33" y2="380" stroke="#333" stroke-width="1.5" />
+    <text x="22" y="380" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">1</text>
+    
+    <!-- 2m -->
+    <line x1="28" y1="340" x2="33" y2="340" stroke="#333" stroke-width="1.5" />
+    <text x="22" y="340" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">2</text>
+    
+    <!-- 3m -->
+    <line x1="28" y1="300" x2="33" y2="300" stroke="#333" stroke-width="1.5" />
+    <text x="22" y="300" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">3</text>
+    
+    <!-- 4m -->
+    <line x1="28" y1="260" x2="33" y2="260" stroke="#333" stroke-width="1.5" />
+    <text x="22" y="260" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">4</text>
+    
+    <!-- 5m -->
+    <line x1="28" y1="220" x2="33" y2="220" stroke="#333" stroke-width="1.5" />
+    <text x="22" y="220" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">5</text>
+    
+    <!-- 6m -->
+    <line x1="28" y1="180" x2="33" y2="180" stroke="#333" stroke-width="1.5" />
+    <text x="22" y="180" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">6</text>
+    
+    <!-- 7m -->
+    <line x1="28" y1="140" x2="33" y2="140" stroke="#333" stroke-width="1.5" />
+    <text x="22" y="140" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">7</text>
+    
+    <!-- 8m -->
+    <line x1="28" y1="100" x2="33" y2="100" stroke="#333" stroke-width="1.5" />
+    <text x="22" y="100" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">8</text>
+    
+    <!-- 9m -->
+    <line x1="28" y1="60" x2="33" y2="60" stroke="#333" stroke-width="1.5" />
+    <text x="22" y="60" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">9</text>
+    
+    <!-- 10m -->
+    <line x1="28" y1="20" x2="35" y2="20" stroke="#333" stroke-width="2" />
+    <text x="22" y="20" font-family="Arial, sans-serif" font-size="10" fill="#333" text-anchor="end" dominant-baseline="middle">10</text>
+    
+    <!-- Rótulo "m" no topo -->
+    <text x="19" y="15" font-family="Arial, sans-serif" font-size="12" fill="#333" text-anchor="middle" font-weight="bold">m</text>
+  </g>
+
+  <!-- Régua horizontal dinâmica (sobrevive à câmera) -->
+  <g id="reguaDinamica"></g>
+
+  <!-- Rótulos e controles fixos -->
+  <text x="400" y="35" font-family="Arial, sans-serif" font-size="18" fill="white" text-anchor="middle" font-weight="bold" stroke="rgba(0,0,0,0.5)" stroke-width="1">
+    Pressione ESPAÇO para lançar a bola (segure → para impulso horizontal)
+  </text>
+  <text x="400" y="60" font-family="monospace" font-size="14" fill="white" text-anchor="middle" stroke="rgba(0,0,0,0.5)" stroke-width="0.5">
+    Massa = <tspan id="massaDisplay" font-weight="bold">1.0</tspan> kg | 
+    Gravidade = <tspan id="gravDisplay" font-weight="bold">9.8</tspan> m/s² | 
+    V₀ᵧ = <tspan id="v0yDisplay" font-weight="bold">6.26</tspan> m/s | 
+    V₀ₓ = <tspan id="v0xDisplay" font-weight="bold">1.0</tspan> m/s
+  </text>
+
+  <foreignObject x="50" y="80" width="700" height="100">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; text-align: center; background: rgba(255,255,255,0.7); border-radius: 8px; padding: 8px;">
+      <label>Massa (kg): <input type="number" id="massaInput" value="1.0" step="0.1" min="0.1" style="width:60px; margin-right:10px;" oninput="atualizarMassa(this.value)" /></label>
+      <label>Gravidade (m/s²): <input type="number" id="gravInput" value="9.8" step="0.1" min="0.1" style="width:60px; margin-right:10px;" oninput="atualizarGravidade(this.value)" /></label>
+      <label>V₀ᵧ (m/s): <input type="number" id="v0yInput" value="6.26" step="0.1" min="0.1" style="width:60px; margin-right:10px;" oninput="atualizarV0y(this.value)" /></label>
+      <label>V₀ₓ (m/s): <input type="number" id="v0xInput" value="1.0" step="0.1" min="0" style="width:60px; margin-right:10px;" oninput="atualizarV0x(this.value)" /></label>
+      <br/>
+      <label style="cursor:pointer;">
+        <input type="checkbox" id="mostrarTrajetoria" checked="checked" onchange="toggleTrajetoria(this.checked)" /> 
+        Mostrar trajetória tracejada
+      </label>
+    </div>
+  </foreignObject>
+
+  <!-- Sombra da bola -->
+  <ellipse id="sombra" cx="400" cy="420" rx="20" ry="5" fill="rgba(0,0,0,0.4)" />
+
+  <!-- Bola (x fixo em 400) -->
+  <circle id="bola" cx="400" cy="400" r="20" fill="#FFD700" stroke="#DAA520" stroke-width="2">
+    <ellipse cx="-6" cy="-8" rx="8" ry="6" fill="rgba(255,255,255,0.8)" transform="rotate(-30, -6, -8)" />
+  </circle>
+
+  <script type="text/javascript"><![CDATA[
+    // ==================== VARIÁVEIS DE FÍSICA ====================
+    var massa = 1.0;
+    var g = 9.8;
+    var escala = 40;
+    var chao_y_svg = 420;
+    var v0_vertical = Math.sqrt(2 * 9.8 * 2);
+    var v0_horizontal = 1.0;
+
+    var restituicao_base = 0.75;
+    var atrito_quique_base = 0.85;
+    var mu_rolamento = 0.5;
+
+    var setaDireitaPressionada = false;
+
+    // Elementos
+    var bola = document.getElementById('bola');
+    var sombra = document.getElementById('sombra');
+    var trajetoriaPath = document.getElementById('trajetoriaPath');
+    var reguaDinamica = document.getElementById('reguaDinamica');
+    var nuvensContainer = document.getElementById('nuvensContainer');
+    var linhasPerspectiva = document.getElementById('linhasPerspectiva');
+    var massaDisplay = document.getElementById('massaDisplay');
+    var gravDisplay = document.getElementById('gravDisplay');
+    var v0yDisplay = document.getElementById('v0yDisplay');
+    var v0xDisplay = document.getElementById('v0xDisplay');
+    var massaInput = document.getElementById('massaInput');
+    var gravInput = document.getElementById('gravInput');
+    var v0yInput = document.getElementById('v0yInput');
+    var v0xInput = document.getElementById('v0xInput');
+    var svgRaiz = document.getElementById('svgRaiz');
+
+    // Estado da simulação
+    var pos_x_real = 0.0;
+    var pos_y_real = 0.0;
+    var v_x = 0.0;
+    var v_y = 0.0;
+    var animando = false;
+    var ultimaTimestamp = null;
+    var acumuladorTempo = 0;
+    var passoFisica = 1/120;
+
+    // Câmera
+    var cameraX_m = 0.0;
+    var cameraSmoothness = 0.08;
+
+    // Trajetória
+    var pontosTrajetoria = [];
+    var contadorPassos = 0;
+    var trajetoriaAtiva = true;
+
+    // ========== NUVENS DINÂMICAS ==========
+    var nuvens = [];
+    var numNuvens = 14;
+    var paralaxeFator = 0.6;
+
+    function inicializarNuvens() {
+      nuvens = [];
+      for (var i = 0; i < numNuvens; i++) {
+        nuvens.push({
+          posX: (Math.random() - 0.5) * 30,
+          posY: 40 + Math.random() * 200,
+          scale: 0.6 + Math.random() * 0.8,
+          opacity: 0.7 + Math.random() * 0.3
+        });
+      }
+    }
+
+    function atualizarNuvens() {
+      nuvensContainer.innerHTML = '';
+      var ns = 'http://www.w3.org/2000/svg';
+      for (var i = 0; i < nuvens.length; i++) {
+        var n = nuvens[i];
+        var x_tela = 400 + (n.posX - cameraX_m * paralaxeFator) * escala;
+
+        if (x_tela < -200) {
+          n.posX = cameraX_m * paralaxeFator + (800 + 150 + Math.random() * 200) / escala;
+          x_tela = 400 + (n.posX - cameraX_m * paralaxeFator) * escala;
+        } else if (x_tela > 1000) {
+          n.posX = cameraX_m * paralaxeFator - (800 + 150 + Math.random() * 200) / escala;
+          x_tela = 400 + (n.posX - cameraX_m * paralaxeFator) * escala;
+        }
+
+        var use = document.createElementNS(ns, 'use');
+        use.setAttribute('href', '#nuvemModelo');
+        use.setAttribute('x', x_tela);
+        use.setAttribute('y', n.posY);
+        use.setAttribute('transform', 'scale(' + n.scale + ')');
+        use.setAttribute('opacity', n.opacity);
+        nuvensContainer.appendChild(use);
+      }
+    }
+
+    // ========== LINHAS DE PERSPECTIVA DO CHÃO ==========
+    function atualizarLinhasPerspectiva() {
+      linhasPerspectiva.innerHTML = '';
+      var ns = 'http://www.w3.org/2000/svg';
+      var inicio = cameraX_m - 10;
+      var fim = cameraX_m + 10;
+      var passo = 1.0;
+
+      var fugaX = 400;
+      var fugaY = 200;
+
+      for (var m = Math.floor(inicio); m <= Math.ceil(fim); m += passo) {
+        var x_chao = 400 + (m - cameraX_m) * escala;
+        if (x_chao < -10 || x_chao > 810) continue;
+
+        var line = document.createElementNS(ns, 'line');
+        line.setAttribute('x1', x_chao);
+        line.setAttribute('y1', chao_y_svg + 80);
+        line.setAttribute('x2', fugaX);
+        line.setAttribute('y2', fugaY);
+        line.setAttribute('stroke', 'rgba(0,80,0,0.25)');
+        line.setAttribute('stroke-width', '1.8');
+        linhasPerspectiva.appendChild(line);
+      }
+    }
+
+    // ========== FÍSICA ==========
+    function getRestituicao() {
+      return restituicao_base / (1.0 + 0.5 * massa);
+    }
+    function getAtritoQuique() {
+      return atrito_quique_base / (1.0 + 0.3 * massa);
+    }
+    function getAceleracaoRolamento() {
+      return -mu_rolamento * g * (1.0 + 0.2 * massa);
+    }
+
+    function sincronizarInputs() {
+      massaInput.value = massa.toFixed(1);
+      gravInput.value = g.toFixed(1);
+      v0yInput.value = v0_vertical.toFixed(2);
+      v0xInput.value = v0_horizontal.toFixed(1);
+      massaDisplay.textContent = massa.toFixed(1);
+      gravDisplay.textContent = g.toFixed(1);
+      v0yDisplay.textContent = v0_vertical.toFixed(2);
+      v0xDisplay.textContent = v0_horizontal.toFixed(1);
+    }
+
+    window.atualizarMassa = function(valor) {
+      var novo = parseFloat(valor);
+      if (!isNaN(novo) && novo > 0) {
+        massa = novo;
+        massaDisplay.textContent = massa.toFixed(1);
+      } else {
+        massaInput.value = massa.toFixed(1);
+      }
+    };
+    window.atualizarGravidade = function(valor) {
+      var novo = parseFloat(valor);
+      if (!isNaN(novo) && novo > 0) {
+        g = novo;
+        gravDisplay.textContent = g.toFixed(1);
+      } else {
+        gravInput.value = g.toFixed(1);
+      }
+    };
+    window.atualizarV0y = function(valor) {
+      var novo = parseFloat(valor);
+      if (!isNaN(novo) && novo > 0) {
+        v0_vertical = novo;
+        v0yDisplay.textContent = v0_vertical.toFixed(2);
+      } else {
+        v0yInput.value = v0_vertical.toFixed(2);
+      }
+    };
+    window.atualizarV0x = function(valor) {
+      var novo = parseFloat(valor);
+      if (!isNaN(novo) && novo >= 0) {
+        v0_horizontal = novo;
+        v0xDisplay.textContent = v0_horizontal.toFixed(1);
+      } else {
+        v0xInput.value = v0_horizontal.toFixed(1);
+      }
+    };
+
+    window.toggleTrajetoria = function(checked) {
+      trajetoriaAtiva = checked;
+      trajetoriaPath.style.display = checked ? 'block' : 'none';
+    };
+
+    // ========== RÉGUA HORIZONTAL DINÂMICA ==========
+    function desenharRegua() {
+      reguaDinamica.innerHTML = '';
+      var inicio = cameraX_m - 5;
+      var fim = cameraX_m + 5;
+      var primeiroMetro = Math.floor(inicio);
+      var ns = 'http://www.w3.org/2000/svg';
+      for (var m = primeiroMetro; m <= fim; m++) {
+        var x_tela = 400 + (m - cameraX_m) * escala;
+        if (x_tela < 0 || x_tela > 800) continue;
+        var line = document.createElementNS(ns, 'line');
+        line.setAttribute('x1', x_tela);
+        line.setAttribute('y1', chao_y_svg);
+        line.setAttribute('x2', x_tela);
+        line.setAttribute('y2', chao_y_svg - 10);
+        line.setAttribute('stroke', '#333');
+        line.setAttribute('stroke-width', '1.5');
+        reguaDinamica.appendChild(line);
+        var text = document.createElementNS(ns, 'text');
+        text.setAttribute('x', x_tela);
+        text.setAttribute('y', chao_y_svg - 15);
+        text.setAttribute('font-family', 'Arial, sans-serif');
+        text.setAttribute('font-size', '10');
+        text.setAttribute('fill', '#333');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'bottom');
+        text.textContent = Math.round(m);
+        reguaDinamica.appendChild(text);
+      }
+    }
+
+    // ========== TRAJETÓRIA ==========
+    function limparTrajetoria() {
+      pontosTrajetoria = [];
+      trajetoriaPath.setAttribute('d', '');
+    }
+
+    function adicionarPontoTrajetoria() {
+      if (!trajetoriaAtiva) return;
+      if (pontosTrajetoria.length > 0) {
+        var ultimo = pontosTrajetoria[pontosTrajetoria.length - 1];
+        var dx = pos_x_real - ultimo.x;
+        var dy = pos_y_real - ultimo.y;
+        if (dx*dx + dy*dy < 0.01) return;
+      }
+      pontosTrajetoria.push({x: pos_x_real, y: pos_y_real});
+      desenharTrajetoria();
+    }
+
+    function desenharTrajetoria() {
+      if (pontosTrajetoria.length === 0) {
+        trajetoriaPath.setAttribute('d', '');
+        return;
+      }
+      var refX = pos_x_real;
+      var d = '';
+      for (var i = 0; i < pontosTrajetoria.length; i++) {
+        var x_tela = 400 + (pontosTrajetoria[i].x - refX) * escala;
+        var y_tela = chao_y_svg - pontosTrajetoria[i].y * escala;
+        if (i === 0) d += 'M' + x_tela.toFixed(1) + ',' + y_tela.toFixed(1);
+        else d += ' L' + x_tela.toFixed(1) + ',' + y_tela.toFixed(1);
+      }
+      trajetoriaPath.setAttribute('d', d);
+    }
+
+    // ========== ATUALIZAÇÃO DA CENA ==========
+    function atualizarCena() {
+      var dx = pos_x_real - cameraX_m;
+      cameraX_m += dx * cameraSmoothness;
+
+      var y_svg = chao_y_svg - Math.min(pos_y_real * escala, 400);
+      bola.setAttribute('cy', y_svg);
+      sombra.setAttribute('cy', chao_y_svg);
+      
+      var alturaMaxRef = (g > 0) ? (v0_vertical * v0_vertical) / (2 * g) : 1.0;
+      var fatorAltura = Math.min(pos_y_real / Math.max(alturaMaxRef, 0.1), 1.0);
+      var rx_sombra = 20 - 15 * fatorAltura;
+      sombra.setAttribute('rx', Math.max(rx_sombra, 3));
+      sombra.setAttribute('opacity', Math.max(0.4 - 0.35 * fatorAltura, 0.05));
+
+      desenharRegua();
+      desenharTrajetoria();
+      atualizarNuvens();
+      atualizarLinhasPerspectiva();
+    }
+
+    // ========== SIMULAÇÃO ==========
+    function reset() {
+      pos_x_real = 0.0;
+      pos_y_real = 0.0;
+      v_x = 0.0;
+      v_y = 0.0;
+      cameraX_m = 0.0;
+      acumuladorTempo = 0;
+      limparTrajetoria();
+      atualizarCena();
+    }
+
+    function simularPassoFixo(deltaT) {
+      var a_x = 0.0;
+      var a_y = -g;
+      v_x += a_x * deltaT;
+      v_y += a_y * deltaT;
+      pos_x_real += v_x * deltaT;
+      pos_y_real += v_y * deltaT;
+
+      if (pos_y_real <= 0.0) {
+        pos_y_real = 0.0;
+        v_y = -v_y * getRestituicao();
+        v_x *= getAtritoQuique();
+        if (Math.abs(v_y) < 0.2) v_y = 0.0;
+      }
+
+      if (pos_y_real <= 0.0 && v_y === 0.0 && Math.abs(v_x) > 0.01) {
+        v_x += getAceleracaoRolamento() * deltaT;
+        if (Math.abs(v_x) < 0.05) v_x = 0.0;
+      }
+
+      if (pos_y_real * escala > 400) {
+        pos_y_real = 400 / escala;
+        v_y = 0.0;
+      }
+
+      contadorPassos++;
+      if (contadorPassos % 2 === 0) {
+        adicionarPontoTrajetoria();
+      }
+
+      atualizarCena();
+    }
+
+    function animar(timestamp) {
+      if (!animando) return;
+      if (ultimaTimestamp === null) ultimaTimestamp = timestamp;
+      var deltaReal = (timestamp - ultimaTimestamp) / 1000;
+      ultimaTimestamp = timestamp;
+      if (deltaReal > 0.1) deltaReal = 0.1;
+      acumuladorTempo += deltaReal;
+      while (acumuladorTempo >= passoFisica) {
+        simularPassoFixo(passoFisica);
+        acumuladorTempo -= passoFisica;
+      }
+      if (Math.abs(v_x) < 0.05 && Math.abs(v_y) < 0.05 && pos_y_real === 0.0) {
+        animando = false;
+        ultimaTimestamp = null;
+        adicionarPontoTrajetoria();
+        atualizarCena();
+      } else {
+        requestAnimationFrame(animar);
+      }
+    }
+
+    function lancarBola() {
+      if (animando) return;
+      reset();
+      v_y = v0_vertical;
+      if (setaDireitaPressionada) {
+        v_x = v0_horizontal;
+      } else {
+        v_x = 0.0;
+      }
+      animando = true;
+      ultimaTimestamp = null;
+      requestAnimationFrame(animar);
+    }
+
+    // ========== EVENTOS ==========
+    document.addEventListener('keydown', function(event) {
+      var ativo = document.activeElement;
+      if (ativo && ativo.tagName === 'INPUT') return;
+      if (event.code === 'Space') {
+        event.preventDefault();
+        lancarBola();
+      }
+    });
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        setaDireitaPressionada = true;
+      }
+    });
+    document.addEventListener('keyup', function(event) {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        setaDireitaPressionada = false;
+      }
+    });
+
+    // ========== INICIALIZAÇÃO ==========
+    if (svgRaiz) {
+      svgRaiz.focus();
+      svgRaiz.addEventListener('click', () => svgRaiz.focus());
+    }
+    sincronizarInputs();
+    inicializarNuvens();
+    reset();
+    document.getElementById('mostrarTrajetoria').checked = true;
+    trajetoriaAtiva = true;
+  ]]></script>
+</svg>

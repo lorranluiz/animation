@@ -1,0 +1,265 @@
+<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" tabindex="0" id="svgRaiz">
+  <defs>
+    <linearGradient id="ceuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E90FF" />
+      <stop offset="40%" stop-color="#87CEEB" />
+      <stop offset="100%" stop-color="#B0E0E6" />
+    </linearGradient>
+
+    <linearGradient id="gramadoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#228B22" />
+      <stop offset="30%" stop-color="#32CD32" />
+      <stop offset="100%" stop-color="#7CFC00" />
+    </linearGradient>
+
+    <g id="nuvemModelo">
+      <ellipse cx="0" cy="0" rx="60" ry="25" fill="white" opacity="0.9" />
+      <ellipse cx="-30" cy="5" rx="40" ry="20" fill="white" opacity="0.9" />
+      <ellipse cx="30" cy="5" rx="45" ry="20" fill="white" opacity="0.9" />
+      <ellipse cx="-15" cy="-15" rx="35" ry="18" fill="white" opacity="0.9" />
+      <ellipse cx="15" cy="-15" rx="35" ry="18" fill="white" opacity="0.9" />
+    </g>
+
+    <clipPath id="clipTrajetoria">
+      <rect x="0" y="0" width="800" height="500" />
+    </clipPath>
+
+    <clipPath id="clipChao">
+      <rect x="0" y="420" width="800" height="80" />
+    </clipPath>
+  </defs>
+
+  <!-- Céu fixo -->
+  <rect width="800" height="420" fill="url(#ceuGrad)" />
+
+  <!-- Contêiner para nuvens dinâmicas -->
+  <g id="nuvensContainer"></g>
+
+  <!-- Gramado fixo (fundo) -->
+  <rect x="0" y="420" width="800" height="80" fill="url(#gramadoGrad)" />
+
+  <!-- Linhas de perspectiva dinâmicas com clip no chão -->
+  <g clip-path="url(#clipChao)" id="linhasPerspectiva"></g>
+
+  <!-- Linha do horizonte fixa -->
+  <line x1="0" y1="420" x2="800" y2="420" stroke="#006400" stroke-width="3" stroke-linecap="round" />
+  <line x1="0" y1="500" x2="800" y2="500" stroke="#006400" stroke-width="4" />
+
+  <!-- Trajetória tracejada com clip -->
+  <g clip-path="url(#clipTrajetoria)">
+    <path id="trajetoriaPath" d="" fill="none" stroke="#FF4500" stroke-width="2" stroke-dasharray="6,4" opacity="0.9" />
+  </g>
+
+  <!-- Régua vertical (renderizada pela biblioteca) -->
+  <g id="reguaVertical"></g>
+
+  <!-- Régua horizontal dinâmica -->
+  <g id="reguaDinamica"></g>
+
+  <!-- Rótulos e controles fixos -->
+  <text x="400" y="35" font-family="Arial, sans-serif" font-size="18" fill="white" text-anchor="middle" font-weight="bold" stroke="rgba(0,0,0,0.5)" stroke-width="1">
+    Pressione ESPAÇO para lançar a bola (segure → para impulso horizontal)
+  </text>
+  <text x="400" y="60" font-family="monospace" font-size="14" fill="white" text-anchor="middle" stroke="rgba(0,0,0,0.5)" stroke-width="0.5">
+    Massa = <tspan id="massaDisplay" font-weight="bold">1.0</tspan> kg | 
+    Gravidade = <tspan id="gravDisplay" font-weight="bold">9.8</tspan> m/s² | 
+    V₀ᵧ = <tspan id="v0yDisplay" font-weight="bold">6.26</tspan> m/s | 
+    V₀ₓ = <tspan id="v0xDisplay" font-weight="bold">1.0</tspan> m/s
+  </text>
+
+  <foreignObject x="50" y="80" width="700" height="100">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial, sans-serif; font-size: 14px; color: #333; text-align: center; background: rgba(255,255,255,0.7); border-radius: 8px; padding: 8px;">
+      <label>Massa (kg): <input type="number" id="massaInput" value="1.0" step="0.1" min="0.1" style="width:60px; margin-right:10px;" /></label>
+      <label>Gravidade (m/s²): <input type="number" id="gravInput" value="9.8" step="0.1" min="0.1" style="width:60px; margin-right:10px;" /></label>
+      <label>V₀ᵧ (m/s): <input type="number" id="v0yInput" value="6.26" step="0.1" min="0.1" style="width:60px; margin-right:10px;" /></label>
+      <label>V₀ₓ (m/s): <input type="number" id="v0xInput" value="1.0" step="0.1" min="0" style="width:60px; margin-right:10px;" /></label>
+      <br/>
+      <label style="cursor:pointer;">
+        <input type="checkbox" id="mostrarTrajetoria" checked="checked" /> 
+        Mostrar trajetória tracejada
+      </label>
+    </div>
+  </foreignObject>
+
+  <!-- Sombra da bola -->
+  <ellipse id="sombra" cx="400" cy="420" rx="20" ry="5" fill="rgba(0,0,0,0.4)" />
+
+  <!-- Bola (x fixo em 400) -->
+  <circle id="bola" cx="400" cy="400" r="20" fill="#FFD700" stroke="#DAA520" stroke-width="2">
+    <ellipse cx="-6" cy="-8" rx="8" ry="6" fill="rgba(255,255,255,0.8)" transform="rotate(-30, -6, -8)" />
+  </circle>
+
+  <script type="text/javascript" href="../library/svg-animation-lib.js" />
+  <script type="text/javascript"><![CDATA[
+    var H = SVGAnim.Helpers;
+    var SCALE = 40;
+    var CHAO_Y_SVG = 420;
+
+    var v0_vertical = Math.sqrt(2 * 9.8 * 2);
+    var v0_horizontal = 1.0;
+
+    var bola = H.get('bola');
+    var sombra = H.get('sombra');
+    var svgRaiz = H.get('svgRaiz');
+
+    var engine = new SVGAnim.PhysicsEngine({
+      gravity: 9.8,
+      mass: 1.0,
+      scale: SCALE,
+      groundY: 0,
+      restituicaoBase: 0.75,
+      atritoQuiqueBase: 0.85,
+      muRolamento: 0.5,
+      fixedTimestep: 1 / 120,
+      maxDelta: 0.1,
+      alturaMaximaTela: 400
+    });
+
+    var camera = new SVGAnim.Camera({
+      smoothness: 0.08,
+      scale: SCALE,
+      groundY: 0,
+      screenCenterX: 400,
+      screenGroundY: CHAO_Y_SVG,
+      maxY: 400
+    });
+
+    var nuvens = new SVGAnim.ParallaxBackground({
+      container: H.get('nuvensContainer'),
+      modelId: '#nuvemModelo',
+      numItems: 14,
+      camera: camera,
+      parallaxFactor: 0.6,
+      scale: SCALE,
+      screenWidth: 800,
+      margin: 200
+    });
+
+    var perspectiva = new SVGAnim.PerspectiveLines({
+      container: H.get('linhasPerspectiva'),
+      camera: camera,
+      scale: SCALE,
+      screenWidth: 800,
+      screenHeight: 500,
+      groundY: CHAO_Y_SVG,
+      vanishY: 200,
+      step: 1.0,
+      range: 10,
+      strokeColor: 'rgba(0,80,0,0.25)',
+      strokeWidth: '1.8'
+    });
+
+    var trajetoria = new SVGAnim.TrajectoryTracer({
+      pathElement: H.get('trajetoriaPath'),
+      camera: camera,
+      scale: SCALE,
+      groundY: CHAO_Y_SVG,
+      active: true,
+      recordEvery: 2,
+      minDistance: 0.01
+    });
+
+    var regua = new SVGAnim.DynamicRuler({
+      container: H.get('reguaDinamica'),
+      camera: camera,
+      scale: SCALE,
+      groundY: CHAO_Y_SVG,
+      screenWidth: 800,
+      range: 5,
+      tickHeight: 10,
+      labelOffset: 15
+    });
+
+    var reguaVertical = new SVGAnim.VerticalRuler({
+      container: H.get('reguaVertical'),
+      groundY: CHAO_Y_SVG,
+      maxHeight: 10,
+      scale: SCALE,
+      x: 10,
+      width: 18,
+      tickLengthLong: 7,
+      tickLengthShort: 5,
+      textOffsetX: 22,
+      textAnchor: 'end'
+    });
+
+    var input = new SVGAnim.InputManager({
+      svgElement: svgRaiz
+    });
+
+    var ui = new SVGAnim.UIManager();
+
+    function atualizarCena() {
+      var state = engine.getState();
+
+      camera.follow(state.x, state.y);
+
+      bola.setAttribute('cy', camera.worldToScreenY(state.y));
+      sombra.setAttribute('cy', CHAO_Y_SVG);
+
+      var alturaMaxRef = (engine.gravity > 0) ? (v0_vertical * v0_vertical) / (2 * engine.gravity) : 1.0;
+      var fatorAltura = Math.min(state.y / Math.max(alturaMaxRef, 0.1), 1.0);
+      sombra.setAttribute('rx', Math.max(20 - 15 * fatorAltura, 3));
+      sombra.setAttribute('opacity', Math.max(0.4 - 0.35 * fatorAltura, 0.05));
+
+      regua.update();
+      trajetoria.redraw(state.x);
+      nuvens.update();
+      perspectiva.update();
+    }
+
+    engine.onStep = function(state) {
+      trajetoria.addPoint(state.x, state.y);
+    };
+
+    engine.onUpdate = function(state) {
+      atualizarCena();
+    };
+
+    engine.onStop = function(state) {
+      atualizarCena();
+    };
+
+    function animar(timestamp) {
+      engine.step(timestamp);
+      if (engine.isRunning()) {
+        requestAnimationFrame(animar);
+      }
+    }
+
+    function lancarBola() {
+      if (engine.isRunning()) return;
+      trajetoria.clear();
+      camera.reset();
+      var vx = input.isPressed('ArrowRight') ? v0_horizontal : 0;
+      engine.launch(vx, v0_vertical);
+      requestAnimationFrame(animar);
+    }
+
+    input.onKey('Space', lancarBola);
+
+    ui.bindInput('massaInput', 'massaDisplay', function(val) {
+      engine.setMass(val);
+    }, { format: '1f' });
+
+    ui.bindInput('gravInput', 'gravDisplay', function(val) {
+      engine.setGravity(val);
+    }, { format: '1f' });
+
+    ui.bindInput('v0yInput', 'v0yDisplay', function(val) {
+      v0_vertical = val;
+    }, { format: '2f' });
+
+    ui.bindInput('v0xInput', 'v0xDisplay', function(val) {
+      v0_horizontal = val;
+    }, { format: '1f' });
+
+    ui.bindCheckbox('mostrarTrajetoria', function(checked) {
+      trajetoria.setActive(checked);
+    });
+
+    reguaVertical.render();
+    nuvens.init();
+    atualizarCena();
+  ]]></script>
+</svg>
