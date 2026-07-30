@@ -142,7 +142,7 @@ engine.onLaunch = function(state) {
 
 ### 3. `SVGAnim.Camera` — Sistema de Câmera
 
-Câmera com suavização exponencial que segue um alvo.
+Câmera com suavização exponencial que segue um alvo. Também suporta zoom suave com centro configurável.
 
 ```javascript
 var camera = new SVGAnim.Camera({
@@ -151,7 +151,13 @@ var camera = new SVGAnim.Camera({
   groundY: 0,             // Posição Y do chão no mundo
   screenCenterX: 400,     // Centro X da tela (pixels)
   screenGroundY: 420,     // Posição Y do chão na tela (pixels)
-  maxY: 400               // Altura máxima Y na tela
+  maxY: 400,              // Altura máxima Y na tela
+
+  // Zoom (opcional)
+  zoom: 1.0,              // Nível de zoom atual (1.0 = sem zoom, 1.5 = 50%)
+  zoomSmoothness: 0.05,   // Velocidade da suavização do zoom
+  zoomCenterX: 400,       // Centro X do zoom na tela (pixels)
+  zoomCenterY: 250        // Centro Y do zoom na tela (pixels)
 });
 ```
 
@@ -163,12 +169,35 @@ var camera = new SVGAnim.Camera({
 | `worldToScreenY(worldY)` | Converte Y do mundo para Y da tela |
 | `worldToScreen(worldX, worldY)` | Converte (x,y) do mundo para tela |
 | `isOnScreen(screenX, margin)` | Verifica se uma coordenada X está visível |
-| `reset()` | Reseta câmera para origem |
-| `setSmoothness(s)` | Altera o fator de suavização |
+| `reset()` | Reseta câmera e zoom para origem |
+| `setSmoothness(s)` | Altera o fator de suavização do follow |
+| `setZoomTarget(z)` | Define o zoom alvo (ex: `1.5` = 50% de zoom) |
+| `setZoomCenter(cx, cy)` | Define o centro do zoom (coordenadas da tela) |
+| `setZoomSpeed(s)` | Altera a velocidade da suavização do zoom |
+| `update()` | Atualiza follow E zoom com suavização (um único método) |
+| `getZoomTransform()` | Retorna string `translate(cx,cy) scale(z) translate(-cx,-cy)` para usar no atributo `transform` do SVG |
 
 **Fórmula de suavização:**
 ```
 cameraX += (targetX - cameraX) * smoothness
+zoom    += (targetZoom - zoom) * zoomSmoothness
+```
+
+**Exemplo de uso com zoom em uma imagem:**
+
+```javascript
+var camera = new SVGAnim.Camera({ zoom: 1.0, zoomSmoothness: 0.02 });
+camera.setZoomTarget(1.5);        // 50% de zoom
+camera.setZoomCenter(400, 250);   // centro da tela
+
+function animar() {
+  camera.update();
+  camada.setAttribute('transform', camera.getZoomTransform());
+  if (Math.abs(camera.zoom - 1.5) > 0.001) {
+    requestAnimationFrame(animar);
+  }
+}
+requestAnimationFrame(animar);
 ```
 
 ---

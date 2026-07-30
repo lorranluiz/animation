@@ -1,0 +1,54 @@
+<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" tabindex="0" id="svgRaiz">
+
+  <!-- ============================================================
+       Camada com a imagem que sofrerá o zoom.
+       Para usar outra imagem, altere a variável IMAGEM no script.
+       ============================================================ -->
+  <g id="camadaZoom">
+    <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid slice" />
+  </g>
+
+  <!-- Rótulo informativo -->
+  <text x="400" y="30" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle"
+        stroke="rgba(0,0,0,0.6)" stroke-width="0.5">
+    Zoom em direção ao centro da imagem
+  </text>
+
+  <script type="text/javascript" href="../library/svg-animation-lib.js" />
+  <script type="text/javascript"><![CDATA[
+    // ================================================================
+    // CONFIGURAÇÕES — altere estas variáveis para reutilizar o SVG
+    // ================================================================
+    var IMAGEM       = '../mapa brasil 1.jpg';  // Caminho da imagem
+    var ZOOM_INICIAL = 1.0;                      // Zoom inicial (1.0 = sem zoom)
+    var ZOOM_FINAL   = 1.5;                      // Zoom final (1.5 = 50% de zoom)
+    var CENTRO_X     = 400;                      // Centro X do zoom na tela (pixels)
+    var CENTRO_Y     = 250;                      // Centro Y do zoom na tela (pixels)
+    var VELOCIDADE   = 0.02;                     // Velocidade da suavização do zoom
+    // ================================================================
+
+    var H = SVGAnim.Helpers;
+    var camada = H.get('camadaZoom');
+    var imagem = H.get('imgMapa');
+
+    imagem.setAttribute('href', IMAGEM);
+
+    var camera = new SVGAnim.Camera({
+      zoom: ZOOM_INICIAL,
+      zoomSmoothness: VELOCIDADE,
+      zoomCenterX: CENTRO_X,
+      zoomCenterY: CENTRO_Y
+    });
+    camera.setZoomTarget(ZOOM_FINAL);
+
+    function animar() {
+      camera.update();
+      camada.setAttribute('transform', camera.getZoomTransform());
+
+      if (Math.abs(camera.zoom - ZOOM_FINAL) > 0.001) {
+        requestAnimationFrame(animar);
+      }
+    }
+    requestAnimationFrame(animar);
+  ]]></script>
+</svg>

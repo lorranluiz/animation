@@ -35,8 +35,14 @@ SVGAnim.Camera = (function () {
     this.screenGroundY = config.screenGroundY !== undefined ? config.screenGroundY : 420;
     this.maxY = config.maxY !== undefined ? config.maxY : 400;
 
+    this.zoom = config.zoom !== undefined ? config.zoom : 1.0;
+    this.zoomSmoothness = config.zoomSmoothness !== undefined ? config.zoomSmoothness : 0.05;
+    this.zoomCenterX = config.zoomCenterX !== undefined ? config.zoomCenterX : 400;
+    this.zoomCenterY = config.zoomCenterY !== undefined ? config.zoomCenterY : 250;
+
     this._cameraX = 0;
     this._targetX = 0;
+    this._targetZoom = this.zoom;
   }
 
   /**
@@ -106,6 +112,8 @@ SVGAnim.Camera = (function () {
   Camera.prototype.reset = function () {
     this._cameraX = 0;
     this._targetX = 0;
+    this.zoom = 1.0;
+    this._targetZoom = 1.0;
   };
 
   /**
@@ -114,6 +122,33 @@ SVGAnim.Camera = (function () {
    */
   Camera.prototype.setSmoothness = function (s) {
     this.smoothness = s;
+  };
+
+  Camera.prototype.setZoomTarget = function (z) {
+    this._targetZoom = z;
+  };
+
+  Camera.prototype.setZoomCenter = function (cx, cy) {
+    this.zoomCenterX = cx;
+    this.zoomCenterY = cy;
+  };
+
+  Camera.prototype.setZoomSpeed = function (s) {
+    this.zoomSmoothness = s;
+  };
+
+  Camera.prototype.update = function () {
+    var dx = this._targetX - this._cameraX;
+    this._cameraX += dx * this.smoothness;
+
+    var dz = this._targetZoom - this.zoom;
+    this.zoom += dz * this.zoomSmoothness;
+  };
+
+  Camera.prototype.getZoomTransform = function () {
+    return 'translate(' + this.zoomCenterX + ',' + this.zoomCenterY + ') ' +
+           'scale(' + this.zoom + ') ' +
+           'translate(' + (-this.zoomCenterX) + ',' + (-this.zoomCenterY) + ')';
   };
 
   return Camera;
