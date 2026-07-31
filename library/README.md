@@ -157,7 +157,24 @@ var camera = new SVGAnim.Camera({
   zoom: 1.0,              // Nível de zoom atual (1.0 = sem zoom, 1.5 = 50%)
   zoomSmoothness: 0.05,   // Velocidade da suavização do zoom
   zoomCenterX: 400,       // Centro X do zoom na tela (pixels)
-  zoomCenterY: 250        // Centro Y do zoom na tela (pixels)
+  zoomCenterY: 250,       // Centro Y do zoom na tela (pixels)
+
+  // Desfoque (opcional)
+  blur: 0,                // Desfoque atual (stdDeviation em pixels, ex: 7 ≈ 70%)
+  blurSmoothness: 0.02,   // Velocidade da suavização do desfoque
+  blurFilterId: null,     // ID do <feGaussianBlur> no <defs> para auto-update
+
+  // Rotação 3D (opcional)
+  rotationX: 0,           // Pitch (inclinação) em graus (ex: -25)
+  rotationY: 0,           // Yaw (guinada) em graus
+  rotationZ: 0,           // Roll (rolamento) em graus
+  rotationSmoothness: 0.02, // Velocidade da suavização da rotação
+  perspective: 800,       // Distância da perspectiva em px (menor = mais distorção)
+
+  // Translação (opcional)
+  tx: 0,                  // Translação X em pixels
+  ty: 0,                  // Translação Y em pixels
+  translateSmoothness: 0.02 // Velocidade da suavização da translação
 });
 ```
 
@@ -174,31 +191,79 @@ var camera = new SVGAnim.Camera({
 | `setZoomTarget(z)` | Define o zoom alvo (ex: `1.5` = 50% de zoom) |
 | `setZoomCenter(cx, cy)` | Define o centro do zoom (coordenadas da tela) |
 | `setZoomSpeed(s)` | Altera a velocidade da suavização do zoom |
-| `update()` | Atualiza follow E zoom com suavização (um único método) |
-| `getZoomTransform()` | Retorna string `translate(cx,cy) scale(z) translate(-cx,-cy)` para usar no atributo `transform` do SVG |
+| `setBlurTarget(b)` | Define o blur alvo (ex: `7` = 70% blur, `0` = foco total) |
+| `setBlurSpeed(s)` | Altera a velocidade da suavização do desfoque |
+| `getBlur()` | Retorna o valor atual de blur (stdDeviation) |
+| `setRotationTarget(rx, ry, rz)` | Define ângulos alvo de rotação (graus, parciais aceitos) |
+| `setRotationSpeed(s)` | Altera a velocidade da suavização da rotação |
+| `getRotation()` | Retorna `{rx, ry, rz}` atuais |
+| `setTranslationTarget(tx, ty)` | Define translação alvo (pixels, parciais aceitos) |
+| `setTranslationSpeed(s)` | Altera a velocidade da suavização da translação |
+| `getTranslation()` | Retorna `{tx, ty}` atuais |
+| `update()` | Atualiza follow, zoom, blur E rotação com suavização |
+| `getZoomTransform()` | String SVG 2D para `transform` (zoom apenas, compatibilidade) |
+| `getCameraTransform()` | String CSS 3D completa: `perspective() rotateX/Y/Z() translate() scale()` |
 
-**Fórmula de suavização:**
+**Fórmulas de suavização:**
 ```
-cameraX += (targetX - cameraX) * smoothness
-zoom    += (targetZoom - zoom) * zoomSmoothness
+cameraX   += (targetX - cameraX) * smoothness
+zoom      += (targetZoom - zoom) * zoomSmoothness
+blur      += (targetBlur - blur) * blurSmoothness
+rotationX += (targetRotationX - rotationX) * rotationSmoothness
+rotationY += (targetRotationY - rotationY) * rotationSmoothness
+rotationZ += (targetRotationZ - rotationZ) * rotationSmoothness
+tx       += (targetTx - tx) * translateSmoothness
+ty       += (targetTy - ty) * translateSmoothness
 ```
 
-**Exemplo de uso com zoom em uma imagem:**
+**Exemplo de uso completo (zoom + blur + rotação 3D):**
+
+```xml
+<svg ...>
+  <defs>
+    <filter id="cameraBlur">
+      <feGaussianBlur id="blurElem" stdDeviation="7" />
+    </filter>
+  </defs>
+
+  <g id="camadaZoom" filter="url(#cameraBlur)">
+    <image href="foto.jpg" width="800" height="500" />
+  </g>
+</svg>
+```
 
 ```javascript
-var camera = new SVGAnim.Camera({ zoom: 1.0, zoomSmoothness: 0.02 });
-camera.setZoomTarget(1.5);        // 50% de zoom
-camera.setZoomCenter(400, 250);   // centro da tela
+var camera = new SVGAnim.Camera({
+  zoom: 1.0,
+  zoomSmoothness: 0.02,
+  blur: 7,                // começa com 70% de desfoque
+  blurSmoothness: 0.02,
+  blurFilterId: 'blurElem',
+  rotationX: -25,          // começa inclinado
+  rotationY: 15,
+  rotationSmoothness: 0.02,
+  perspective: 800
+});
+camera.setZoomTarget(1.5);
+camera.setBlurTarget(0);
+camera.setRotationTarget(0, 0, 0); // fica de frente
 
 function animar() {
   camera.update();
-  camada.setAttribute('transform', camera.getZoomTransform());
-  if (Math.abs(camera.zoom - 1.5) > 0.001) {
+  camada.style.transform = camera.getCameraTransform();
+  camada.style.transformOrigin = '0 0';
+
+  if (Math.abs(camera.zoom - 1.5) > 0.001 ||
+      Math.abs(camera.blur) > 0.01 ||
+      Math.abs(camera.rotationX) > 0.01) {
     requestAnimationFrame(animar);
   }
 }
 requestAnimationFrame(animar);
 ```
+
+> **Nota:** `getCameraTransform()` usa CSS 3D (`style.transform`), necessário para rotação 3D.
+> `getZoomTransform()` usa SVG 2D (`setAttribute('transform', ...)`), compatível com simulações 2D.
 
 ---
 

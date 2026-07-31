@@ -1,54 +1,671 @@
 <svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" tabindex="0" id="svgRaiz">
 
-  <!-- ============================================================
-       Camada com a imagem que sofrerá o zoom.
-       Para usar outra imagem, altere a variável IMAGEM no script.
-       ============================================================ -->
-  <g id="camadaZoom">
-    <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid slice" />
+  <defs>
+    <filter id="cameraBlur">
+      <feGaussianBlur id="blurElem" stdDeviation="7" />
+    </filter>
+  </defs>
+
+  <g id="camadaZoom" filter="url(#cameraBlur)">
+    <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" />
   </g>
 
-  <!-- Rótulo informativo -->
-  <text x="400" y="30" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle"
-        stroke="rgba(0,0,0,0.6)" stroke-width="0.5">
-    Zoom em direção ao centro da imagem
+  <!-- Barra de status no topo -->
+  <rect id="statusBg" x="0" y="0" width="800" height="28" fill="rgba(0,0,0,0.55)" />
+  <text id="statusText" x="400" y="19" font-family="Arial, sans-serif" font-size="13" fill="white" text-anchor="middle">
+    Pressione ▶ PLAY para iniciar a animação
   </text>
+
+  <!-- Botão Play -->
+  <g id="btnPlay" cursor="pointer">
+    <rect x="6" y="3" width="40" height="22" rx="4" fill="#4CAF50" stroke="#388E3C" stroke-width="1.5" />
+    <text id="playLabel" x="26" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#9654;</text>
+  </g>
+
+  <!-- Botão Upload -->
+  <g id="btnUpload" cursor="pointer">
+    <rect x="52" y="3" width="40" height="22" rx="4" fill="#2196F3" stroke="#1976D2" stroke-width="1.5" />
+    <text x="72" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#128193;</text>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- TIMELINE                                                      -->
+  <!-- ============================================================ -->
+
+  <!-- Fundo da timeline -->
+  <rect x="30" y="323" width="740" height="6" rx="3" fill="rgba(255,255,255,0.25)" />
+
+  <!-- Barra de progresso (preenche durante animação) -->
+  <rect id="progressBar" x="40" y="323" width="0" height="6" rx="3" fill="#4CAF50" />
+
+  <!-- Keyframe 1 (Início) -->
+  <g id="kf1" cursor="pointer">
+    <circle id="kf1Outer" cx="40" cy="326" r="8" fill="#333" stroke="#4CAF50" stroke-width="2.5" />
+    <circle id="kf1Inner" cx="40" cy="326" r="3" fill="#4CAF50" />
+  </g>
+  <text x="40" y="344" font-family="Arial, sans-serif" font-size="10" fill="#ccc" text-anchor="middle">INÍCIO</text>
+
+  <!-- Keyframe 2 (Fim) -->
+  <g id="kf2" cursor="pointer">
+    <circle id="kf2Outer" cx="760" cy="326" r="8" fill="#333" stroke="#aaa" stroke-width="2" />
+    <circle id="kf2Inner" cx="760" cy="326" r="3" fill="#4CAF50" display="none" />
+  </g>
+  <text x="760" y="344" font-family="Arial, sans-serif" font-size="10" fill="#ccc" text-anchor="middle">FIM</text>
+
+  <!-- Info do keyframe selecionado -->
+  <text id="kfInfo" x="400" y="358" font-family="Courier New, monospace" font-size="11" fill="#FFD700" text-anchor="middle">
+    KF1 (Inicial): Zoom 1.0 | Blur 7 | Pitch -25° Yaw 15° Roll 0°
+  </text>
+
+  <!-- ============================================================ -->
+  <!-- CONTROLES (foreignObject)                                     -->
+  <!-- ============================================================ -->
 
   <script type="text/javascript" href="../library/svg-animation-lib.js" />
   <script type="text/javascript"><![CDATA[
-    // ================================================================
-    // CONFIGURAÇÕES — altere estas variáveis para reutilizar o SVG
-    // ================================================================
-    var IMAGEM       = '../mapa brasil 1.jpg';  // Caminho da imagem
-    var ZOOM_INICIAL = 1.0;                      // Zoom inicial (1.0 = sem zoom)
-    var ZOOM_FINAL   = 1.5;                      // Zoom final (1.5 = 50% de zoom)
-    var CENTRO_X     = 400;                      // Centro X do zoom na tela (pixels)
-    var CENTRO_Y     = 250;                      // Centro Y do zoom na tela (pixels)
-    var VELOCIDADE   = 0.02;                     // Velocidade da suavização do zoom
-    // ================================================================
-
     var H = SVGAnim.Helpers;
+    var IMAGEM = '../mapa brasil 1.jpg';
+    var CENTRO_X = 400;
+    var CENTRO_Y = 250;
+
     var camada = H.get('camadaZoom');
     var imagem = H.get('imgMapa');
+    var statusText = H.get('statusText');
+    var statusBg = H.get('statusBg');
+    var btnPlay = H.get('btnPlay');
+    var btnUpload = H.get('btnUpload');
+    var progressBar = H.get('progressBar');
+    var kfInfo = H.get('kfInfo');
 
     imagem.setAttribute('href', IMAGEM);
 
-    var camera = new SVGAnim.Camera({
-      zoom: ZOOM_INICIAL,
-      zoomSmoothness: VELOCIDADE,
-      zoomCenterX: CENTRO_X,
-      zoomCenterY: CENTRO_Y
+    btnUpload.addEventListener('click', function() {
+      var fileInput = document.getElementById('fileInput');
+      if (fileInput) fileInput.click();
     });
-    camera.setZoomTarget(ZOOM_FINAL);
+
+    document.addEventListener('change', function(event) {
+      if (event.target && event.target.id === 'fileInput') {
+        var file = event.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          imagem.setAttribute('href', e.target.result);
+          statusText.textContent = 'Imagem carregada: ' + file.name + ' — pressione ▶ PLAY';
+          salvarEstado();
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function salvarEstado() {
+      try {
+        var estado = {
+          imagem: imagem.getAttribute('href')
+        };
+        var ids = [
+          'zoomIniSlide','zoomFimSlide','zoomVelSlide',
+          'blurIniSlide','blurFimSlide','blurVelSlide',
+          'rotXIniSlide','rotYIniSlide','rotZIniSlide',
+          'rotXFimSlide','rotYFimSlide','rotZFimSlide','rotVelSlide',
+          'translTxIniSlide','translTyIniSlide',
+          'translTxFimSlide','translTyFimSlide','translVelSlide'
+        ];
+        for (var i = 0; i < ids.length; i++) {
+          var el = document.getElementById(ids[i]);
+          if (el) estado[ids[i]] = el.value;
+        }
+        var checks = ['chkZoom','chkBlur','chkRot','chkTransl'];
+        for (var j = 0; j < checks.length; j++) {
+          var ch = document.getElementById(checks[j]);
+          if (ch) estado[checks[j]] = ch.checked;
+        }
+        localStorage.setItem('SVG_ZOOM_STATE', JSON.stringify(estado));
+      } catch(e) {}
+    }
+
+    function carregarEstado() {
+      try {
+        var json = localStorage.getItem('SVG_ZOOM_STATE');
+        if (!json) return;
+        var estado = JSON.parse(json);
+
+        if (estado.imagem) {
+          imagem.setAttribute('href', estado.imagem);
+        }
+
+        var ids = [
+          'zoomIniSlide','zoomFimSlide','zoomVelSlide',
+          'blurIniSlide','blurFimSlide','blurVelSlide',
+          'rotXIniSlide','rotYIniSlide','rotZIniSlide',
+          'rotXFimSlide','rotYFimSlide','rotZFimSlide','rotVelSlide',
+          'translTxIniSlide','translTyIniSlide',
+          'translTxFimSlide','translTyFimSlide','translVelSlide'
+        ];
+        for (var i = 0; i < ids.length; i++) {
+          var el = document.getElementById(ids[i]);
+          if (el && estado[ids[i]] !== undefined) el.value = estado[ids[i]];
+        }
+
+        var checks = ['chkZoom','chkBlur','chkRot','chkTransl'];
+        for (var j = 0; j < checks.length; j++) {
+          var ch = document.getElementById(checks[j]);
+          if (ch && estado[checks[j]] !== undefined) ch.checked = estado[checks[j]];
+        }
+      } catch(e) {}
+    }
+
+    var T_BAR_X = 40;
+    var T_BAR_W = 720;
+
+    var camera = new SVGAnim.Camera({
+      zoom: 1.0,
+      zoomSmoothness: 0.02,
+      zoomCenterX: CENTRO_X,
+      zoomCenterY: CENTRO_Y,
+      blur: 7,
+      blurSmoothness: 0.02,
+      blurFilterId: 'blurElem',
+      rotationX: -25,
+      rotationY: 15,
+      rotationZ: 0,
+      rotationSmoothness: 0.02,
+      perspective: 800
+    });
+
+    var rodando = false;
+    var kfSelecionado = 1;
+
+    var zoomEnabled = true;
+    var blurEnabled = true;
+    var rotEnabled = true;
+    var translEnabled = true;
+
+    var targetZoom = 1.5;
+    var targetBlur = 0;
+    var targetRotX = 0;
+    var targetRotY = 0;
+    var targetRotZ = 0;
+    var targetTx = 0;
+    var targetTy = 0;
+
+    var zoomIni = 1.0;
+    var blurIni = 7;
+    var rotXIni = -25;
+    var rotYIni = 15;
+    var rotZIni = 0;
+    var txIni = 0;
+    var tyIni = 0;
+
+    function lerSliders() {
+      var el;
+      targetZoom = (el = g('zoomFimSlide')) ? (el.value / 10) : 1.5;
+      zoomIni = (el = g('zoomIniSlide')) ? (el.value / 10) : 1.0;
+
+      targetBlur = (el = g('blurFimSlide')) ? parseInt(el.value) : 0;
+      blurIni = (el = g('blurIniSlide')) ? parseInt(el.value) : 7;
+
+      targetRotX = (el = g('rotXFimSlide')) ? parseInt(el.value) : 0;
+      targetRotY = (el = g('rotYFimSlide')) ? parseInt(el.value) : 0;
+      targetRotZ = (el = g('rotZFimSlide')) ? parseInt(el.value) : 0;
+      rotXIni = (el = g('rotXIniSlide')) ? parseInt(el.value) : -25;
+      rotYIni = (el = g('rotYIniSlide')) ? parseInt(el.value) : 15;
+      rotZIni = (el = g('rotZIniSlide')) ? parseInt(el.value) : 0;
+
+      targetTx = (el = g('translTxFimSlide')) ? parseInt(el.value) : 0;
+      targetTy = (el = g('translTyFimSlide')) ? parseInt(el.value) : 0;
+      txIni = (el = g('translTxIniSlide')) ? parseInt(el.value) : 0;
+      tyIni = (el = g('translTyIniSlide')) ? parseInt(el.value) : 0;
+
+      camera.zoomSmoothness = (el = g('zoomVelSlide')) ? (el.value / 1000) : 0.02;
+      camera.blurSmoothness = (el = g('blurVelSlide')) ? (el.value / 1000) : 0.02;
+      camera.rotationSmoothness = (el = g('rotVelSlide')) ? (el.value / 1000) : 0.02;
+      camera.translateSmoothness = (el = g('translVelSlide')) ? (el.value / 1000) : 0.02;
+
+      zoomEnabled = g('chkZoom') ? g('chkZoom').checked : true;
+      blurEnabled = g('chkBlur') ? g('chkBlur').checked : true;
+      rotEnabled = g('chkRot') ? g('chkRot').checked : true;
+      translEnabled = g('chkTransl') ? g('chkTransl').checked : true;
+
+      aplicarValoresAtuais();
+    }
+
+    function g(id) { return document.getElementById(id); }
+
+    function atualizarLabelsSliders() {
+      var zis = g('zoomIniSlide'); if (zis) g('lblZoomIni').textContent = (zis.value/10).toFixed(1);
+      var zfs = g('zoomFimSlide'); if (zfs) g('lblZoomFim').textContent = (zfs.value/10).toFixed(1);
+      var zvs = g('zoomVelSlide'); if (zvs) g('lblZoomVel').textContent = (zvs.value/1000).toFixed(3);
+      var bis = g('blurIniSlide'); if (bis) g('lblBlurIni').textContent = bis.value;
+      var bfs = g('blurFimSlide'); if (bfs) g('lblBlurFim').textContent = bfs.value;
+      var bvs = g('blurVelSlide'); if (bvs) g('lblBlurVel').textContent = (bvs.value/1000).toFixed(3);
+      var rxi = g('rotXIniSlide'); if (rxi) g('lblRotXIni').textContent = rxi.value;
+      var ryi = g('rotYIniSlide'); if (ryi) g('lblRotYIni').textContent = ryi.value;
+      var rzi = g('rotZIniSlide'); if (rzi) g('lblRotZIni').textContent = rzi.value;
+      var rxf = g('rotXFimSlide'); if (rxf) g('lblRotXFim').textContent = rxf.value;
+      var ryf = g('rotYFimSlide'); if (ryf) g('lblRotYFim').textContent = ryf.value;
+      var rzf = g('rotZFimSlide'); if (rzf) g('lblRotZFim').textContent = rzf.value;
+      var txi = g('translTxIniSlide'); if (txi) g('lblTranslTxIni').textContent = txi.value;
+      var tyi = g('translTyIniSlide'); if (tyi) g('lblTranslTyIni').textContent = tyi.value;
+      var txf = g('translTxFimSlide'); if (txf) g('lblTranslTxFim').textContent = txf.value;
+      var tyf = g('translTyFimSlide'); if (tyf) g('lblTranslTyFim').textContent = tyf.value;
+      var tvl = g('translVelSlide'); if (tvl) g('lblTranslVel').textContent = (tvl.value/1000).toFixed(3);
+      var rvl = g('rotVelSlide'); if (rvl) g('lblRotVel').textContent = (rvl.value/1000).toFixed(3);
+    }
+
+    function atualizarKFInfo() {
+      if (kfSelecionado === 1) {
+        kfInfo.textContent =
+        'KF1 (Inicial): Zoom ' + zoomIni.toFixed(1) +
+        ' | Blur ' + blurIni +
+        ' | Pitch ' + rotXIni + '°  Yaw ' + rotYIni +
+        '°  Roll ' + rotZIni + '°' +
+        ' | Tx ' + txIni + '  Ty ' + tyIni;
+      } else {
+        kfInfo.textContent =
+        'KF2 (Final):   Zoom ' + targetZoom.toFixed(1) +
+        ' | Blur ' + targetBlur +
+        ' | Pitch ' + targetRotX + '°  Yaw ' + targetRotY +
+        '°  Roll ' + targetRotZ + '°' +
+        ' | Tx ' + targetTx + '  Ty ' + targetTy;
+      }
+    }
+
+    function aplicarValoresAtuais() {
+      if (rodando) return;
+
+      if (kfSelecionado === 1) {
+        camera.zoom = zoomIni;
+        camera._targetZoom = zoomIni;
+        camera.blur = blurIni;
+        camera._targetBlur = blurIni;
+        camera.rotationX = rotXIni;
+        camera._targetRotationX = rotXIni;
+        camera.rotationY = rotYIni;
+        camera._targetRotationY = rotYIni;
+        camera.rotationZ = rotZIni;
+        camera._targetRotationZ = rotZIni;
+        camera.tx = txIni;
+        camera._targetTx = txIni;
+        camera.ty = tyIni;
+        camera._targetTy = tyIni;
+      } else {
+        camera.zoom = targetZoom;
+        camera._targetZoom = targetZoom;
+        camera.blur = targetBlur;
+        camera._targetBlur = targetBlur;
+        camera.rotationX = targetRotX;
+        camera._targetRotationX = targetRotX;
+        camera.rotationY = targetRotY;
+        camera._targetRotationY = targetRotY;
+        camera.rotationZ = targetRotZ;
+        camera._targetRotationZ = targetRotZ;
+        camera.tx = targetTx;
+        camera._targetTx = targetTx;
+        camera.ty = targetTy;
+        camera._targetTy = targetTy;
+      }
+
+      if (camera.blurFilterId) {
+        var filterEl = document.getElementById(camera.blurFilterId);
+        if (filterEl) {
+          filterEl.setAttribute('stdDeviation', camera.blur);
+        }
+      }
+
+      camada.style.transform = camera.getCameraTransform();
+      camada.style.transformOrigin = '0 0';
+      atualizarStatus();
+    }
+
+    function atualizarStatus() {
+      statusText.textContent =
+        'Zoom: ' + camera.zoom.toFixed(2) + 'x  |  ' +
+        'Blur: ' + camera.blur.toFixed(1) + 'px  |  ' +
+        'Pitch: ' + camera.rotationX.toFixed(1) + '°  ' +
+        'Yaw: ' + camera.rotationY.toFixed(1) + '°  ' +
+        'Roll: ' + camera.rotationZ.toFixed(1) + '°  ' +
+        'Tx: ' + camera.tx.toFixed(0) + '  Ty: ' + camera.ty.toFixed(0);
+    }
+
+    function calcularProgresso() {
+      var componentes = 0;
+      var total = 0;
+
+      if (zoomEnabled && targetZoom !== zoomIni) {
+        componentes += Math.abs(camera.zoom - zoomIni) / Math.abs(targetZoom - zoomIni);
+        total++;
+      }
+      if (blurEnabled && targetBlur !== blurIni) {
+        componentes += Math.abs(camera.blur - blurIni) / Math.abs(targetBlur - blurIni);
+        total++;
+      }
+      if (rotEnabled) {
+        var diffs = 0;
+        var diffsTotal = 0;
+        if (targetRotX !== rotXIni) {
+          diffs += Math.abs(camera.rotationX - rotXIni) / Math.abs(targetRotX - rotXIni);
+          diffsTotal++;
+        }
+        if (targetRotY !== rotYIni) {
+          diffs += Math.abs(camera.rotationY - rotYIni) / Math.abs(targetRotY - rotYIni);
+          diffsTotal++;
+        }
+        if (targetRotZ !== rotZIni) {
+          diffs += Math.abs(camera.rotationZ - rotZIni) / Math.abs(targetRotZ - rotZIni);
+          diffsTotal++;
+        }
+        if (diffsTotal > 0) {
+          componentes += diffs / diffsTotal;
+          total++;
+        }
+      }
+      if (translEnabled) {
+        var translDiffs = 0;
+        var translTotal = 0;
+        if (targetTx !== txIni) {
+          translDiffs += Math.abs(camera.tx - txIni) / Math.abs(targetTx - txIni);
+          translTotal++;
+        }
+        if (targetTy !== tyIni) {
+          translDiffs += Math.abs(camera.ty - tyIni) / Math.abs(targetTy - tyIni);
+          translTotal++;
+        }
+        if (translTotal > 0) {
+          componentes += translDiffs / translTotal;
+          total++;
+        }
+      }
+
+      return total > 0 ? Math.min(componentes / total, 1.0) : 0;
+    }
+
+    function atualizarProgressBar(prog) {
+      progressBar.setAttribute('width', prog * T_BAR_W);
+    }
 
     function animar() {
       camera.update();
-      camada.setAttribute('transform', camera.getZoomTransform());
+      camada.style.transform = camera.getCameraTransform();
+      camada.style.transformOrigin = '0 0';
+      atualizarStatus();
 
-      if (Math.abs(camera.zoom - ZOOM_FINAL) > 0.001) {
+      var prog = calcularProgresso();
+      atualizarProgressBar(prog);
+
+      var zoomOk = !zoomEnabled || Math.abs(camera.zoom - targetZoom) < 0.001;
+      var blurOk = !blurEnabled || Math.abs(camera.blur - targetBlur) < 0.01;
+      var rotOk  = !rotEnabled  || (
+        Math.abs(camera.rotationX - targetRotX) < 0.01 &&
+        Math.abs(camera.rotationY - targetRotY) < 0.01 &&
+        Math.abs(camera.rotationZ - targetRotZ) < 0.01);
+      var translOk = !translEnabled || (
+        Math.abs(camera.tx - targetTx) < 0.5 &&
+        Math.abs(camera.ty - targetTy) < 0.5);
+
+      if (!zoomOk || !blurOk || !rotOk || !translOk) {
         requestAnimationFrame(animar);
+      } else {
+        atualizarProgressBar(1.0);
+        rodando = false;
+        setKFSelection(2);
+        g('playLabel').textContent = '\u25B6';
+        statusBg.setAttribute('fill', 'rgba(0,0,0,0.55)');
+        statusText.textContent = 'Animação concluída — ajuste os parâmetros e pressione ▶ PLAY';
       }
     }
-    requestAnimationFrame(animar);
+
+    function iniciar() {
+      if (rodando) return;
+      lerSliders();
+
+      if (zoomEnabled) {
+        camera.zoom = zoomIni;
+        camera._targetZoom = targetZoom;
+      } else {
+        camera._targetZoom = camera.zoom;
+      }
+
+      if (blurEnabled) {
+        camera.blur = blurIni;
+        camera._targetBlur = targetBlur;
+      } else {
+        camera._targetBlur = camera.blur;
+      }
+
+      if (rotEnabled) {
+        camera.rotationX = rotXIni;
+        camera.rotationY = rotYIni;
+        camera.rotationZ = rotZIni;
+        camera._targetRotationX = targetRotX;
+        camera._targetRotationY = targetRotY;
+        camera._targetRotationZ = targetRotZ;
+      } else {
+        camera._targetRotationX = camera.rotationX;
+        camera._targetRotationY = camera.rotationY;
+        camera._targetRotationZ = camera.rotationZ;
+      }
+
+      if (translEnabled) {
+        camera.tx = txIni;
+        camera.ty = tyIni;
+        camera._targetTx = targetTx;
+        camera._targetTy = targetTy;
+      } else {
+        camera._targetTx = camera.tx;
+        camera._targetTy = camera.ty;
+      }
+
+      atualizarProgressBar(0);
+      rodando = true;
+      g('playLabel').textContent = '\u25A0';
+      statusBg.setAttribute('fill', 'rgba(76,175,80,0.6)');
+      requestAnimationFrame(animar);
+    }
+
+    function setKFSelection(kf) {
+      kfSelecionado = kf;
+      var k1o = g('kf1Outer');
+      var k1i = g('kf1Inner');
+      var k2o = g('kf2Outer');
+      var k2i = g('kf2Inner');
+
+      if (kf === 1) {
+        k1o.setAttribute('stroke', '#4CAF50'); k1o.setAttribute('stroke-width', '2.5');
+        k1i.setAttribute('display', 'inline');
+        k2o.setAttribute('stroke', '#aaa'); k2o.setAttribute('stroke-width', '2');
+        k2i.setAttribute('display', 'none');
+      } else {
+        k2o.setAttribute('stroke', '#4CAF50'); k2o.setAttribute('stroke-width', '2.5');
+        k2i.setAttribute('display', 'inline');
+        k1o.setAttribute('stroke', '#aaa'); k1o.setAttribute('stroke-width', '2');
+        k1i.setAttribute('display', 'none');
+      }
+
+      var kf1Fields = document.querySelectorAll('.kf1-field');
+      var kf2Fields = document.querySelectorAll('.kf2-field');
+      for (var i = 0; i < kf1Fields.length; i++) {
+        kf1Fields[i].style.display = (kf === 1) ? 'flex' : 'none';
+      }
+      for (var j = 0; j < kf2Fields.length; j++) {
+        kf2Fields[j].style.display = (kf === 2) ? 'flex' : 'none';
+      }
+
+      atualizarKFInfo();
+      aplicarValoresAtuais();
+    }
+
+    btnPlay.addEventListener('click', iniciar);
+
+    H.get('kf1').addEventListener('click', function() { setKFSelection(1); });
+    H.get('kf2').addEventListener('click', function() { setKFSelection(2); });
+
+    document.addEventListener('keydown', function(event) {
+      var active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+      if (event.code === 'Home') {
+        event.preventDefault();
+        if (!rodando) setKFSelection(1);
+      }
+      if (event.code === 'Space') {
+        event.preventDefault();
+        iniciar();
+      }
+    });
+
+    function setupSliderListeners() {
+      var sliders = document.querySelectorAll('input[type=range], input[type=checkbox]');
+      for (var i = 0; i < sliders.length; i++) {
+        sliders[i].addEventListener('input', function() {
+          lerSliders();
+          atualizarLabelsSliders();
+          atualizarKFInfo();
+          aplicarValoresAtuais();
+          salvarEstado();
+        });
+      }
+    }
+
+    var panelReady = false;
+    function initQuandoPronto() {
+      if (panelReady) return;
+      if (!g('zoomIniSlide')) return;
+      panelReady = true;
+      carregarEstado();
+      setupSliderListeners();
+      lerSliders();
+      atualizarLabelsSliders();
+      atualizarKFInfo();
+      atualizarStatus();
+    }
+    setTimeout(function() { initQuandoPronto(); }, 200);
+    var pollTimer = setInterval(function() {
+      if (!panelReady) initQuandoPronto();
+      else clearInterval(pollTimer);
+    }, 100);
+
+    camada.style.transform = camera.getCameraTransform();
+    camada.style.transformOrigin = '0 0';
+    atualizarStatus();
   ]]></script>
+
+  <foreignObject x="0" y="360" width="800" height="140">
+    <div xmlns="http://www.w3.org/1999/xhtml" id="painelControles" style="
+      font-family: Arial, sans-serif; font-size: 11px; color: #eee;
+      background: rgba(20,20,20,0.85); padding: 6px 8px;
+      box-sizing: border-box; width: 800px; user-select: none;
+      overflow: visible;
+    ">
+      <style>
+        #painelControles .row { display: flex; align-items: center; margin-bottom: 5px; gap: 4px; }
+        #painelControles .row:last-child { margin-bottom: 0; }
+        #painelControles label { white-space: nowrap; cursor: pointer; }
+        #painelControles label.chk { min-width: 50px; }
+        #painelControles span.lbl { min-width: 18px; text-align: center; font-size: 10px; color: #aaa; }
+        #painelControles span.lbl-kf { min-width: 22px; text-align: center; font-size: 10px; color: #4CAF50; font-weight: bold; }
+        #painelControles span.val { min-width: 28px; text-align: right; color: #FFD700; font-variant-numeric: tabular-nums; }
+        #painelControles input[type=range] { width: 68px; margin: 0 2px; accent-color: #4CAF50; }
+        #painelControles input[type=checkbox] { accent-color: #4CAF50; margin: 0; }
+        #painelControles .sep { width: 6px; }
+        #painelControles .kf-field { display: flex; align-items: center; gap: 4px; }
+      </style>
+
+      <input type="file" id="fileInput" accept="image/*" style="display:none" />
+
+      <!-- Linha Zoom -->
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="chkZoom" checked="checked" /> Zoom</label>
+        <span class="kf-field kf1-field">
+          <span class="lbl-kf">Ini</span>
+          <input type="range" id="zoomIniSlide" min="10" max="30" value="10" step="1" />
+          <span class="val" id="lblZoomIni">1.0</span>
+        </span>
+        <span class="kf-field kf2-field" style="display:none">
+          <span class="lbl-kf">Fim</span>
+          <input type="range" id="zoomFimSlide" min="10" max="30" value="15" step="1" />
+          <span class="val" id="lblZoomFim">1.5</span>
+        </span>
+        <span class="sep"></span>
+        <span class="lbl">Vel</span>
+        <input type="range" id="zoomVelSlide" min="5" max="100" value="20" step="1" />
+        <span class="val" id="lblZoomVel">0.020</span>
+      </div>
+
+      <!-- Linha Blur -->
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="chkBlur" checked="checked" /> Blur</label>
+        <span class="kf-field kf1-field">
+          <span class="lbl-kf">Ini</span>
+          <input type="range" id="blurIniSlide" min="0" max="15" value="7" step="1" />
+          <span class="val" id="lblBlurIni">7</span>
+        </span>
+        <span class="kf-field kf2-field" style="display:none">
+          <span class="lbl-kf">Fim</span>
+          <input type="range" id="blurFimSlide" min="0" max="15" value="0" step="1" />
+          <span class="val" id="lblBlurFim">0</span>
+        </span>
+        <span class="sep"></span>
+        <span class="lbl">Vel</span>
+        <input type="range" id="blurVelSlide" min="5" max="100" value="20" step="1" />
+        <span class="val" id="lblBlurVel">0.020</span>
+      </div>
+
+      <!-- Linha Rotação 3D -->
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="chkRot" checked="checked" /> Rot3D</label>
+        <span class="kf-field kf1-field">
+          <span class="lbl">Pitch</span>
+          <input type="range" id="rotXIniSlide" min="-90" max="90" value="-25" step="1" />
+          <span class="val" id="lblRotXIni">-25</span>
+          <span class="lbl">Yaw</span>
+          <input type="range" id="rotYIniSlide" min="-90" max="90" value="15" step="1" />
+          <span class="val" id="lblRotYIni">15</span>
+          <span class="lbl">Roll</span>
+          <input type="range" id="rotZIniSlide" min="-90" max="90" value="0" step="1" />
+          <span class="val" id="lblRotZIni">0</span>
+        </span>
+        <span class="kf-field kf2-field" style="display:none">
+          <span class="lbl">Pitch</span>
+          <input type="range" id="rotXFimSlide" min="-90" max="90" value="0" step="1" />
+          <span class="val" id="lblRotXFim">0</span>
+          <span class="lbl">Yaw</span>
+          <input type="range" id="rotYFimSlide" min="-90" max="90" value="0" step="1" />
+          <span class="val" id="lblRotYFim">0</span>
+          <span class="lbl">Roll</span>
+          <input type="range" id="rotZFimSlide" min="-90" max="90" value="0" step="1" />
+          <span class="val" id="lblRotZFim">0</span>
+        </span>
+        <span class="sep"></span>
+        <span class="lbl">Vel</span>
+        <input type="range" id="rotVelSlide" min="5" max="100" value="20" step="1" />
+        <span class="val" id="lblRotVel">0.020</span>
+      </div>
+
+      <!-- Linha Translação -->
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="chkTransl" checked="checked" /> Trans</label>
+        <span class="kf-field kf1-field">
+          <span class="lbl">Tx</span>
+          <input type="range" id="translTxIniSlide" min="-300" max="300" value="0" step="1" />
+          <span class="val" id="lblTranslTxIni">0</span>
+          <span class="lbl">Ty</span>
+          <input type="range" id="translTyIniSlide" min="-300" max="300" value="0" step="1" />
+          <span class="val" id="lblTranslTyIni">0</span>
+        </span>
+        <span class="kf-field kf2-field" style="display:none">
+          <span class="lbl">Tx</span>
+          <input type="range" id="translTxFimSlide" min="-300" max="300" value="0" step="1" />
+          <span class="val" id="lblTranslTxFim">0</span>
+          <span class="lbl">Ty</span>
+          <input type="range" id="translTyFimSlide" min="-300" max="300" value="0" step="1" />
+          <span class="val" id="lblTranslTyFim">0</span>
+        </span>
+        <span class="sep"></span>
+        <span class="lbl">Vel</span>
+        <input type="range" id="translVelSlide" min="5" max="100" value="20" step="1" />
+        <span class="val" id="lblTranslVel">0.020</span>
+      </div>
+    </div>
+  </foreignObject>
+
 </svg>
