@@ -108,6 +108,7 @@
     var KF = SVGAnim.Keyframe;
     var IMAGEM = '../mapa brasil 1.jpg';
     var CENTRO_X = 400, CENTRO_Y = 250;
+    var IMG_W = 800, IMG_H = 500;
     var T_BAR_X = 40, T_BAR_W = 720;
 
     var camada = H.get('camadaZoom'), imagem = H.get('imgMapa');
@@ -117,6 +118,43 @@
     var kfContainer = H.get('kfContainer'), kfLabelContainer = H.get('kfLabelContainer');
     var durLabel = H.get('durLabel');
     imagem.style.transformOrigin = '400px 250px';
+
+    function configurarDimensoesImagem(w, h, manterZoom) {
+      if (!w || !h) return;
+      var CAP = 2000;
+      var scale = Math.min(CAP / w, CAP / h, 1);
+      var fw = Math.round(w * scale);
+      var fh = Math.round(h * scale);
+      IMG_W = fw; IMG_H = fh;
+      var fo = g('imgContainer');
+      fo.setAttribute('width', fw);
+      fo.setAttribute('height', fh);
+      imagem.style.width = '100%';
+      imagem.style.height = '100%';
+      imagem.style.objectFit = 'contain';
+      CENTRO_X = fw / 2;
+      CENTRO_Y = fh / 2;
+      camera.zoomCenterX = 400;
+      camera.zoomCenterY = 250;
+      if (!manterZoom) {
+        var fitZoom = Math.min(800 / fw, 500 / fh);
+        camera.zoom = fitZoom;
+        if (g('zoomSlide')) { g('zoomSlide').value = fitZoom.toFixed(2); g('valZoom').value = fitZoom.toFixed(2); }
+        var txIni = Math.round(400 - fw / 2), tyIni = Math.round(250 - fh / 2);
+        g('txSlide').min = Math.min(-300, -fw); g('txSlide').max = Math.max(300, fw);
+        g('tySlide').min = Math.min(-300, -fh); g('tySlide').max = Math.max(300, fh);
+        for (var i = 0; i < keyframes.length; i++) {
+          keyframes[i].zoom = fitZoom;
+          keyframes[i].tx = txIni;
+          keyframes[i].ty = tyIni;
+        }
+        timeline.keyframes = keyframes;
+        camera.tx = txIni; camera.ty = tyIni;
+        g('txSlide').value = txIni; g('tySlide').value = tyIni;
+        g('valTx').value = txIni; g('valTy').value = tyIni;
+      }
+      if (!rodando) { carregarSlidersDoKeyframe(keyframes[kfIdx]); aplicarValoresAtuais(); }
+    }
 
     var camera = new SVGAnim.Camera({
       zoom: 1.0, blur: 7, blurFilterId: 'blurElem',
@@ -143,9 +181,29 @@
     var restaurando = false;
 
     function aplicarTransformacao() {
-      camada.style.transform = camera.getCameraTransform();
-      camada.style.transformOrigin = '0 0';
-      imagem.style.transform = camera.getImage3DTransform();
+      var cx = camera.zoomCenterX, cy = camera.zoomCenterY;
+      var baseP = Math.max(IMG_W, IMG_H) * 1.6;
+      var P = Math.max(100, baseP - Math.abs(camera.rotationX) / 90 * baseP * 0.75);
+
+      imagem.style.transform =
+        'perspective(' + P + 'px) ' +
+        'translate(' + cx + 'px,' + cy + 'px) ' +
+        'rotateX(' + camera.rotationX.toFixed(2) + 'deg) ' +
+        'rotateY(' + camera.rotationY.toFixed(2) + 'deg) ' +
+        'rotateZ(' + camera.rotationZ.toFixed(2) + 'deg) ' +
+        'scale(' + camera.zoom + ') ' +
+        'translate(' + (-cx + camera.tx).toFixed(2) + 'px,' + (-cy + camera.ty).toFixed(2) + 'px)';
+      imagem.style.transformOrigin = '0 0';
+
+      var hl = g('highlightsLayer');
+      hl.style.transform =
+        'translate(' + cx + 'px,' + cy + 'px) ' +
+        'rotate(' + camera.rotationZ.toFixed(2) + 'deg) ' +
+        'scale(' + camera.zoom + ') ' +
+        'translate(' + (-cx + camera.tx).toFixed(2) + 'px,' + (-cy + camera.ty).toFixed(2) + 'px)';
+      hl.style.transformOrigin = '0 0';
+
+      camada.style.transform = '';
     }
 
     function entrarModoMarcacao() {
@@ -215,6 +273,13 @@
     });
     var inicioTimestamp = null;
     var pausadoMs = 0;
+
+    var _imgPrimeiroLoad = true;
+
+    imagem.addEventListener('load', function() {
+      configurarDimensoesImagem(imagem.naturalWidth, imagem.naturalHeight, !_imgPrimeiroLoad);
+      _imgPrimeiroLoad = false;
+    });
 
     function aplicarLetterbox(opac) {
       if (opac === undefined) opac = rodando ? 1 : 0.4;

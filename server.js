@@ -13,7 +13,8 @@ const MIME = {
   '.jpg': 'image/jpeg',
   '.png': 'image/png',
   '.json': 'application/json',
-  '.wasm': 'application/wasm'
+  '.wasm': 'application/wasm',
+  '.html': 'text/html'
 };
 
 http.createServer((req, res) => {
@@ -131,7 +132,7 @@ http.createServer((req, res) => {
     return;
   }
 
-  let filePath = path.join(ROOT, req.url === '/' ? '/test/zoom-imagem.svg' : decodeURIComponent(req.url.split('?')[0]));
+  let filePath = path.join(ROOT, req.url === '/' ? '/test/index.html' : decodeURIComponent(req.url.split('?')[0]));
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
