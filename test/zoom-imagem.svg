@@ -260,6 +260,7 @@
     function selecionarKF(i) {
       if (rodando) return;
       kfIdx = Math.max(0, Math.min(keyframes.length - 1, i));
+      pausadoMs = 0;
       carregarSlidersDoKeyframe(keyframes[kfIdx]);
       atualizarSelecaoKeyframes();
       for (var j = 0; j < keyframes.length; j++) {
@@ -359,7 +360,8 @@
       if (keyframes.length < 2) return;
       if (pausadoMs === 0) {
         lerSliders();
-        aplicarKeyframeNaCamera(keyframes[0]);
+        aplicarKeyframeNaCamera(keyframes[kfIdx]);
+        pausadoMs = keyframes[kfIdx].tempo * 1000;
         progressBar.setAttribute('width', '0');
       }
       if (modoExibicao) { H.get('toolbars').setAttribute('display', 'none'); H.get('modoExibicao').setAttribute('display', 'none'); }
@@ -409,6 +411,8 @@
       var a = document.activeElement; if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
       if (e.code === 'Home') { e.preventDefault(); if (!rodando) selecionarKF(0); }
       if (e.code === 'End') { e.preventDefault(); if (!rodando) selecionarKF(keyframes.length - 1); }
+      if (e.code === 'ArrowLeft') { e.preventDefault(); if (!rodando) { if (kfIdx > 0) selecionarKF(kfIdx - 1); } }
+      if (e.code === 'ArrowRight') { e.preventDefault(); if (!rodando) { if (kfIdx < keyframes.length - 1) selecionarKF(kfIdx + 1); } }
       if (e.code === 'Space') { e.preventDefault(); iniciar(); }
     });
 
