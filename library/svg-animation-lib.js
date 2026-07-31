@@ -1135,6 +1135,48 @@ var SVGAnim = (function () {
   };
 
   // ========================================================================
+  // Highlighter - Marcador de highlights sobre a imagem
+  // ========================================================================
+
+  function Highlighter() {
+    this.marks = {};
+  }
+
+  Highlighter.prototype.addMark = function (kfIdx, path, thickness, totalLength) {
+    if (!this.marks[kfIdx]) this.marks[kfIdx] = [];
+    this.marks[kfIdx].push({
+      path: path, thickness: thickness,
+      color: 'rgba(255,255,0,0.4)', totalLength: totalLength || 100
+    });
+  };
+
+  Highlighter.prototype.computeFactor = function (t, keyframes, kfIdx) {
+    var markKf = keyframes[kfIdx], last = keyframes[keyframes.length - 1];
+    if (kfIdx === 0) {
+      if (keyframes.length === 1) return 1;
+      var sl = keyframes[1].tempo - markKf.tempo; if (sl <= 0) return 1;
+      var se = markKf.tempo + sl * 0.5, sh = markKf.tempo + sl * 0.75;
+      if (t <= se) return 1; if (t <= sh) return 1 - (t - se) / (sh - se); return 0;
+    }
+    var prev = keyframes[kfIdx - 1], curr = keyframes[kfIdx];
+    var sl2 = curr.tempo - prev.tempo; if (sl2 <= 0) return (t >= curr.tempo ? 1 : 0);
+    var as = prev.tempo + sl2 * 0.9;
+    if (t < as) return 0;
+    if (t <= curr.tempo) return Math.min(1, (t - as) / (curr.tempo - as));
+    if (kfIdx === keyframes.length - 1) return 1;
+    var next = keyframes[kfIdx + 1], ns = next.tempo - curr.tempo;
+    if (ns <= 0) return 1;
+    var se2 = curr.tempo + ns * 0.5, sh2 = curr.tempo + ns * 0.75;
+    if (t <= se2) return 1; if (t <= sh2) return 1 - (t - se2) / (sh2 - se2); return 0;
+  };
+
+  Highlighter.prototype.getMarks = function (kfIdx) { return this.marks[kfIdx] || []; };
+
+  Highlighter.prototype.toJSON = function () { return this.marks; };
+
+  Highlighter.prototype.fromJSON = function (data) { this.marks = data || {}; };
+
+  // ========================================================================
   // API Pública
   // ========================================================================
 
@@ -1151,7 +1193,8 @@ var SVGAnim = (function () {
     InputManager: InputManager,
     UIManager: UIManager,
     Keyframe: Keyframe,
-    Timeline: Timeline
+    Timeline: Timeline,
+    Highlighter: Highlighter
   };
 
 })();

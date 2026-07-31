@@ -18,6 +18,7 @@
 
   <g id="camadaZoom" filter="url(#cameraBlur)">
     <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" />
+    <g id="highlightsLayer" clip-path="url(#viewBoxClip)"></g>
   </g>
 
   <!-- Barras de letterbox (máscara de resolução + frame externo) -->
@@ -59,17 +60,31 @@
     <text x="164" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#128190;</text>
   </g>
 
+  <g id="btnPen" cursor="pointer">
+    <rect x="190" y="3" width="40" height="22" rx="4" fill="#555" stroke="#777" stroke-width="1" />
+    <text x="210" y="19" font-family="Arial, sans-serif" font-size="14" fill="#ccc" text-anchor="middle" dominant-baseline="middle">&#128395;</text>
+  </g>
+
+  <g id="btnEraser" cursor="pointer">
+    <rect x="236" y="3" width="40" height="22" rx="4" fill="#555" stroke="#777" stroke-width="1" />
+    <text x="256" y="19" font-family="Arial, sans-serif" font-size="14" fill="#ccc" text-anchor="middle" dominant-baseline="middle">&#129534;</text>
+  </g>
+
   <g id="btnRecord" cursor="pointer">
-    <rect x="190" y="3" width="40" height="22" rx="4" fill="#F44336" stroke="#C62828" stroke-width="1.5" />
-    <text id="recordLabel" x="210" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#9679;</text>
+    <rect x="282" y="3" width="40" height="22" rx="4" fill="#F44336" stroke="#C62828" stroke-width="1.5" />
+    <text id="recordLabel" x="302" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#9679;</text>
   </g>
 
   <g id="btnReset" cursor="pointer">
-    <rect x="236" y="3" width="40" height="22" rx="4" fill="#555" stroke="#777" stroke-width="1" />
-    <text x="256" y="19" font-family="Arial, sans-serif" font-size="14" fill="#ccc" text-anchor="middle" dominant-baseline="middle">&#128465;</text>
+    <rect x="328" y="3" width="40" height="22" rx="4" fill="#555" stroke="#777" stroke-width="1" />
+    <text x="348" y="19" font-family="Arial, sans-serif" font-size="14" fill="#ccc" text-anchor="middle" dominant-baseline="middle">&#128465;</text>
   </g>
 
+  <!-- Cursor preview da caneta -->
+  <circle id="penCursor" cx="0" cy="0" r="3" fill="rgba(255,255,0,0.3)" stroke="rgba(255,255,0,0.5)" stroke-width="1" display="none" pointer-events="none" />
+
   <!-- Timeline -->
+  <g id="timelineGroup">
   <rect x="30" y="323" width="740" height="6" rx="3" fill="rgba(255,255,255,0.25)" />
   <rect id="progressBar" x="40" y="323" width="0" height="6" rx="3" fill="#4CAF50" />
   <g id="kfContainer"><!-- keyframe groups go here --></g>
@@ -77,6 +92,7 @@
 
   <text id="durLabel" x="400" y="355" font-family="Arial, sans-serif" font-size="9" fill="#999" text-anchor="middle">Duração máx: 10s</text>
   <text id="kfInfo" x="400" y="372" font-family="Courier New, monospace" font-size="11" fill="#FFD700" text-anchor="middle"></text>
+  </g>
 
   <script type="text/javascript" href="../library/svg-animation-lib.js" />
   <script type="text/javascript"><![CDATA[
@@ -109,6 +125,75 @@
     var kfIdx = 0;
     var rodando = false, modoExibicao = false;
     var zoomEnabled = true, blurEnabled = true, rotEnabled = true, translEnabled = true;
+    var highlighter = new SVGAnim.Highlighter();
+    var canetaAtiva = false;
+    var canetaThickness = 5;
+    var modoBorracha = false;
+    var marcacaoAtiva = false;
+    var cameraSaved = null;
+
+    function entrarModoMarcacao() {
+      if (marcacaoAtiva) return;
+      marcacaoAtiva = true;
+      cameraSaved = {
+        zoom: camera.zoom, blur: camera.blur,
+        rotationX: camera.rotationX, rotationY: camera.rotationY, rotationZ: camera.rotationZ,
+        tx: camera.tx, ty: camera.ty, perspective: camera.perspective
+      };
+      camera.zoom = 1; camera.blur = 0; camera.tx = 0; camera.ty = 0;
+      camera.rotationX = 0; camera.rotationY = 0; camera.rotationZ = 0;
+      if (camera.blurFilterId) { var f = document.getElementById(camera.blurFilterId); if (f) f.setAttribute('stdDeviation', '0'); }
+      camada.style.transform = camera.getCameraTransform();
+      camada.style.transformOrigin = '0 0';
+      atualizarHighlights(keyframes[kfIdx].tempo);
+      g('panelHandle').setAttribute('display', 'inline');
+      g('penCursor').setAttribute('display', 'inline');
+    }
+
+    function sairModoMarcacao() {
+      if (!marcacaoAtiva || !cameraSaved) return;
+      if (imagemNaFrente) toggleCamadas();
+      g('panelHandle').setAttribute('display', 'none');
+      g('penCursor').setAttribute('display', 'none');
+      marcacaoAtiva = false;
+      camera.zoom = cameraSaved.zoom; camera.blur = cameraSaved.blur;
+      camera.tx = cameraSaved.tx; camera.ty = cameraSaved.ty;
+      camera.rotationX = cameraSaved.rotationX; camera.rotationY = cameraSaved.rotationY; camera.rotationZ = cameraSaved.rotationZ;
+      camera.perspective = cameraSaved.perspective;
+      if (camera.blurFilterId) { var f = document.getElementById(camera.blurFilterId); if (f) f.setAttribute('stdDeviation', camera.blur); }
+      cameraSaved = null;
+      camada.style.transform = camera.getCameraTransform();
+      camada.style.transformOrigin = '0 0';
+      aplicarKeyframeNaCamera(keyframes[kfIdx]);
+      atualizarHighlights(keyframes[kfIdx].tempo);
+      atualizarStatus();
+    }
+
+    var imagemNaFrente = false;
+
+    function toggleCamadas() {
+      imagemNaFrente = !imagemNaFrente;
+      var svg = H.get('svgRaiz');
+      var cz = H.get('camadaZoom');
+      var tb = H.get('toolbars');
+      var me = H.get('modoExibicao');
+      if (imagemNaFrente) {
+        svg.appendChild(cz);
+        svg.appendChild(H.get('lbTop'));
+        svg.appendChild(H.get('lbBot'));
+        svg.appendChild(H.get('lbLeft'));
+        svg.appendChild(H.get('lbRight'));
+        svg.appendChild(H.get('guideTop'));
+        svg.appendChild(H.get('guideBot'));
+        svg.appendChild(H.get('guideLeft'));
+        svg.appendChild(H.get('guideRight'));
+        svg.appendChild(me);
+      } else {
+        svg.appendChild(tb);
+        svg.insertBefore(me, tb);
+      }
+    }
+
     var resolucao = 'full';
     var timeline = new SVGAnim.Timeline({
       duracao: 10, keyframes: keyframes, durLabel: durLabel, progressBar: progressBar
@@ -164,6 +249,9 @@
 
     var draggingKF = false, dragKFIndex = -1, dragAnchorTime = 0, dragAnchorX = 0;
     var arrastando = false, mouseIniX = 0, mouseIniY = 0, txAnchor = 0, tyAnchor = 0;
+    var drawingPath = '', drawingPoints = [];
+    var draggingPanel = false;
+    var panelAnchorY = 0;
 
     function g(id) { return document.getElementById(id); }
 
@@ -284,7 +372,7 @@
       camada.style.transformOrigin = '0 0';
     }
 
-    function aplicarValoresAtuais() { if (!rodando) { aplicarKeyframeNaCamera(keyframes[kfIdx]); atualizarStatus(); } }
+    function aplicarValoresAtuais() { if (!rodando) { if (!marcacaoAtiva) aplicarKeyframeNaCamera(keyframes[kfIdx]); atualizarHighlights(keyframes[kfIdx].tempo); atualizarStatus(); } }
 
     function atualizarStatus() {
       statusText.textContent =
@@ -366,6 +454,31 @@
       salvarEstado();
     }
 
+    /* ====== HIGHLIGHTS ====== */
+
+    function atualizarHighlights(t) {
+      var layer = H.get('highlightsLayer');
+      while (layer.firstChild) layer.removeChild(layer.firstChild);
+
+      for (var ki = 0; ki < keyframes.length; ki++) {
+        var marks = highlighter.getMarks(ki);
+        for (var mi = 0; mi < marks.length; mi++) {
+          var m = marks[mi], f = highlighter.computeFactor(t, keyframes, ki);
+          if (f <= 0) continue;
+          var p = document.createElementNS(H.SVG_NS, 'path');
+          p.setAttribute('d', m.path);
+          p.setAttribute('stroke', m.color);
+          p.setAttribute('stroke-width', m.thickness);
+          p.setAttribute('fill', 'none');
+          p.setAttribute('stroke-linecap', 'round');
+          p.setAttribute('stroke-linejoin', 'round');
+          p.setAttribute('stroke-dasharray', m.totalLength);
+          p.setAttribute('stroke-dashoffset', m.totalLength * (1 - f));
+          layer.appendChild(p);
+        }
+      }
+    }
+
     /* ====== ANIMAÇÃO ====== */
 
     function animar(timestamp) {
@@ -394,6 +507,7 @@
 
       camada.style.transform = camera.getCameraTransform();
       camada.style.transformOrigin = '0 0';
+      atualizarHighlights(t);
       atualizarStatus();
 
       var prog = t / last.tempo;
@@ -418,6 +532,7 @@
 
     function iniciar() {
       if (rodando) { pausar(); return; }
+      if (marcacaoAtiva) { canetaAtiva = false; sairModoMarcacao(); g('penRow').style.display = 'none'; }
       if (keyframes.length < 2) return;
       if (pausadoMs === 0) {
         lerSliders();
@@ -428,6 +543,7 @@
       if (modoExibicao) { H.get('toolbars').setAttribute('display', 'none'); H.get('modoExibicao').setAttribute('display', 'none'); }
       aplicarLetterbox(1);
       inicioTimestamp = null; rodando = true;
+      atualizarHighlights(0);
       g('playLabel').textContent = '\u23F8';
       statusBg.setAttribute('fill', 'rgba(76,175,80,0.6)');
       requestAnimationFrame(animar);
@@ -587,6 +703,14 @@
       }
     });
 
+    document.addEventListener('mousedown', function(e) {
+      if (canetaAtiva && e.button === 2) e.preventDefault();
+    });
+
+    document.addEventListener('contextmenu', function(e) {
+      if (canetaAtiva) e.preventDefault();
+    });
+
     document.addEventListener('keydown', function(e) {
       var a = document.activeElement; if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
       if (e.code === 'Home') { e.preventDefault(); if (!rodando) selecionarKF(0); }
@@ -594,15 +718,103 @@
       if (e.code === 'ArrowLeft') { e.preventDefault(); if (!rodando) { if (kfIdx > 0) selecionarKF(kfIdx - 1); } }
       if (e.code === 'ArrowRight') { e.preventDefault(); if (!rodando) { if (kfIdx < keyframes.length - 1) selecionarKF(kfIdx + 1); } }
       if (e.code === 'Space') { e.preventDefault(); iniciar(); }
+      if (e.code === 'Tab') { e.preventDefault(); if (marcacaoAtiva && !modoBorracha) toggleCamadas(); }
     });
 
     H.get('overlayMouse').addEventListener('mousedown', function(e) {
       if (rodando) return;
+
+      if (canetaAtiva) {
+        if (e.button === 2) {
+          e.preventDefault();
+          arrastando = true; mouseIniX = e.clientX; mouseIniY = e.clientY;
+          lerSliders(); txAnchor = keyframes[kfIdx].tx; tyAnchor = keyframes[kfIdx].ty;
+          return;
+        }
+
+        var rect = H.get('svgRaiz').getBoundingClientRect();
+        var scaleX = 800 / rect.width, scaleY = 500 / rect.height;
+        var svgX = (e.clientX - rect.left) * scaleX, svgY = (e.clientY - rect.top) * scaleY;
+        if (svgX < 0 || svgX > 800 || svgY < 0 || svgY > 500) return;
+
+        if (modoBorracha) {
+          var marks = highlighter.getMarks(kfIdx);
+          var hit = -1;
+          var distThreshold = 8;
+          for (var mi = marks.length - 1; mi >= 0; mi--) {
+            var testP = document.createElementNS(H.SVG_NS, 'path');
+            testP.setAttribute('d', marks[mi].path);
+            H.get('svgRaiz').appendChild(testP);
+            var len = testP.getTotalLength();
+            for (var li = 0; li < len; li += 6) {
+              var pt = testP.getPointAtLength(li);
+              var dx = svgX - pt.x, dy = svgY - pt.y;
+              if (dx * dx + dy * dy < distThreshold * distThreshold) { hit = mi; break; }
+            }
+            testP.parentNode.removeChild(testP);
+            if (hit >= 0) break;
+          }
+          if (hit >= 0) {
+            marks.splice(hit, 1);
+            aplicarValoresAtuais();
+            salvarEstado();
+          }
+          return;
+        }
+
+        drawingPath = 'M' + svgX.toFixed(1) + ',' + svgY.toFixed(1);
+        drawingPoints = [{x: svgX, y: svgY}];
+
+        var prev = H.get('drawingPreview');
+        if (prev) prev.parentNode.removeChild(prev);
+        var p = document.createElementNS(H.SVG_NS, 'path');
+        p.setAttribute('id', 'drawingPreview');
+        p.setAttribute('d', drawingPath);
+        p.setAttribute('stroke', 'rgba(255,255,0,0.5)');
+        p.setAttribute('stroke-width', canetaThickness);
+        p.setAttribute('fill', 'none');
+        p.setAttribute('stroke-linecap', 'round');
+        p.setAttribute('stroke-linejoin', 'round');
+        H.get('highlightsLayer').appendChild(p);
+        return;
+      }
+
       arrastando = true; mouseIniX = e.clientX; mouseIniY = e.clientY;
       lerSliders(); txAnchor = keyframes[kfIdx].tx; tyAnchor = keyframes[kfIdx].ty;
     });
 
     window.addEventListener('mousemove', function(e) {
+      if (draggingPanel) {
+        var dy = e.clientY - panelAnchorY;
+        var fo = document.querySelector('foreignObject');
+        var tl = g('timelineGroup');
+        if (fo && tl) {
+          var newY = Math.max(-100, Math.min(480, parseInt(fo.getAttribute('y')) + dy));
+          fo.setAttribute('y', newY);
+          tl.setAttribute('transform', 'translate(0,' + (newY - 390 + 5) + ')');
+          g('panelHandle').setAttribute('y', newY - 5);
+        }
+        panelAnchorY = e.clientY;
+        return;
+      }
+
+      if (canetaAtiva && !rodando) {
+        var rect = H.get('svgRaiz').getBoundingClientRect();
+        var scaleX = 800 / rect.width, scaleY = 500 / rect.height;
+        var sx = (e.clientX - rect.left) * scaleX, sy = (e.clientY - rect.top) * scaleY;
+        var pc = g('penCursor');
+        pc.setAttribute('cx', sx); pc.setAttribute('cy', sy);
+        pc.setAttribute('display', (sx>=0&&sx<=800&&sy>=0&&sy<=500) ? 'inline' : 'none');
+
+        if (drawingPath && sx>=0 && sx<=800 && sy>=0 && sy<=500) {
+          drawingPath += ' L' + sx.toFixed(1) + ',' + sy.toFixed(1);
+          drawingPoints.push({x: sx, y: sy});
+          var dp = g('drawingPreview');
+          if (dp) dp.setAttribute('d', drawingPath);
+        }
+        return;
+      }
+
       if (draggingKF && !rodando) {
         var rect = H.get('svgRaiz').getBoundingClientRect();
         var scale = 800 / rect.width, dx = (e.clientX - dragAnchorX) * scale;
@@ -626,6 +838,18 @@
     });
 
     window.addEventListener('mouseup', function(e) {
+      if (draggingPanel) { draggingPanel = false; return; }
+      if (drawingPath) {
+        var dp = g('drawingPreview');
+        var totalL = dp ? dp.getTotalLength() : drawingPath.length * 2;
+        highlighter.addMark(kfIdx, drawingPath, canetaThickness, totalL);
+        drawingPath = ''; drawingPoints = [];
+        if (dp) dp.parentNode.removeChild(dp);
+        g('penCursor').setAttribute('display', 'none');
+        aplicarValoresAtuais();
+        salvarEstado();
+        return;
+      }
       arrastando = false;
       if (draggingKF) { draggingKF = false; dragKFIndex = -1; selecionarKF(kfIdx); salvarEstado(); }
     });
@@ -641,7 +865,8 @@
     function salvarEstado() {
       try {
         var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, resolucao: resolucao, duracao: timeline.duracao,
-          zoomEnabled: zoomEnabled, blurEnabled: blurEnabled, rotEnabled: rotEnabled, translEnabled: translEnabled, kfs: [] };
+          zoomEnabled: zoomEnabled, blurEnabled: blurEnabled, rotEnabled: rotEnabled, translEnabled: translEnabled, kfs: [],
+          highlights: highlighter.toJSON() };
         for (var i = 0; i < keyframes.length; i++) {
           var k = keyframes[i];
           state.kfs.push({ tempo: k.tempo, zoom: k.zoom, blur: k.blur, rotationX: k.rotationX, rotationY: k.rotationY,
@@ -659,6 +884,7 @@
         if (st.modoExibicao !== undefined) { modoExibicao = st.modoExibicao; g('modoExibCheck').textContent = modoExibicao ? '\u2713' : ''; }
         if (st.duracao !== undefined) { timeline.duracao = st.duracao; g('duracaoSlide').value = timeline.duracao; }
         if (st.resolucao !== undefined) { resolucao = st.resolucao; g('selResolucao').value = resolucao; }
+        if (st.highlights !== undefined) highlighter.fromJSON(st.highlights);
         if (st.zoomEnabled !== undefined) zoomEnabled = st.zoomEnabled;
         if (st.blurEnabled !== undefined) blurEnabled = st.blurEnabled;
         if (st.rotEnabled !== undefined) rotEnabled = st.rotEnabled;
@@ -684,6 +910,61 @@
       }
       g('btnAddKF').addEventListener('click', addKeyframe);
       g('btnDelKF').addEventListener('click', removeKeyframe);
+
+      g('panelHandle').addEventListener('mousedown', function(e) {
+        e.preventDefault(); e.stopPropagation();
+        draggingPanel = true;
+        panelAnchorY = e.clientY;
+      });
+
+      g('btnPen').addEventListener('click', function() {
+        canetaAtiva = !canetaAtiva;
+        modoBorracha = false;
+        var er = g('btnEraser');
+        er.children[0].setAttribute('fill', '#555');
+        er.children[0].setAttribute('stroke', '#777');
+        var btn = g('btnPen');
+        if (canetaAtiva) {
+          btn.children[0].setAttribute('fill', '#4CAF50');
+          btn.children[0].setAttribute('stroke', '#388E3C');
+          btn.children[1].setAttribute('fill', '#fff');
+          entrarModoMarcacao();
+        } else {
+          btn.children[0].setAttribute('fill', '#555');
+          btn.children[0].setAttribute('stroke', '#777');
+          btn.children[1].setAttribute('fill', '#ccc');
+          sairModoMarcacao();
+          g('penCursor').setAttribute('display', 'none');
+        }
+        g('penRow').style.display = canetaAtiva ? 'flex' : 'none';
+        g('penCursor').setAttribute('stroke', 'rgba(255,255,0,0.5)');
+        g('penCursor').setAttribute('fill', 'rgba(255,255,0,0.3)');
+      });
+
+      g('penThickness').addEventListener('input', function() {
+        canetaThickness = parseFloat(this.value);
+        g('lblPenThickness').textContent = canetaThickness;
+        g('penCursor').setAttribute('r', canetaThickness / 2);
+      });
+
+      g('btnEraser').addEventListener('click', function() {
+        if (!canetaAtiva) { g('btnPen').dispatchEvent(new Event('click')); }
+        modoBorracha = !modoBorracha;
+        var er = g('btnEraser');
+        if (modoBorracha) {
+          er.children[0].setAttribute('fill', '#F44336');
+          er.children[0].setAttribute('stroke', '#C62828');
+          er.children[1].setAttribute('fill', '#fff');
+          g('penCursor').setAttribute('stroke', '#F44336');
+          g('penCursor').setAttribute('fill', 'rgba(255,0,0,0.3)');
+        } else {
+          er.children[0].setAttribute('fill', '#555');
+          er.children[0].setAttribute('stroke', '#777');
+          er.children[1].setAttribute('fill', '#fff');
+          g('penCursor').setAttribute('stroke', 'rgba(255,255,0,0.5)');
+          g('penCursor').setAttribute('fill', 'rgba(255,255,0,0.3)');
+        }
+      });
       g('selResolucao').addEventListener('change', function() {
         resolucao = this.value;
         aplicarLetterbox();
@@ -784,8 +1065,17 @@
         <button id="btnAddKF">+ KF</button>
         <button id="btnDelKF">− KF</button>
       </div>
+
+      <div id="penRow" class="row" style="display:none">
+        <span style="color:#FFD700;min-width:20px;">&#128395;</span>
+        <span class="lbl">Esp.</span>
+        <input type="range" id="penThickness" min="1" max="20" value="5" step="0.5" />
+        <span class="val" id="lblPenThickness">5</span>
+      </div>
     </div>
   </foreignObject>
+
+  <rect id="panelHandle" x="0" y="308" width="800" height="18" rx="3" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-dasharray="4,4" cursor="grab" display="none" />
 
   <g id="modoExibicao" cursor="pointer">
     <rect x="660" y="4" width="14" height="14" rx="2" fill="rgba(0,0,0,0.5)" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" />
