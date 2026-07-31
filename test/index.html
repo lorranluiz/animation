@@ -435,6 +435,11 @@
       var el = $(id); if (el) el.style.display = 'none';
     });
 
+    var cxImg = IMG_W / 2 - cameraSaved.tx;
+    var cyImg = IMG_H / 2 - cameraSaved.ty;
+    viewport.scrollLeft = Math.max(0, Math.min(cxImg * fitZoom - window.innerWidth / 2, IMG_W * fitZoom - window.innerWidth));
+    viewport.scrollTop = Math.max(0, Math.min(cyImg * fitZoom - window.innerHeight / 2, IMG_H * fitZoom - window.innerHeight));
+
     $('penCursor').style.display = 'block';
     applyTransform();
     updateHighlights(keyframes[kfIdx].tempo);
