@@ -43,6 +43,11 @@
     backface-visibility:hidden;
   }
 
+  #perspectiveLayer {
+    position:absolute; top:0; left:0;
+    width:100%; height:100%;
+  }
+
   #highlightsSvg {
     position:absolute; top:0; left:0;
     width:800px; height:500px;
@@ -156,14 +161,15 @@
   <div id="viewport">
     <div id="blurWrapper">
       <div id="stage">
-        <img id="imgMapa" src="../mapa brasil 1.jpg" draggable="false" style="width:100%;height:100%;object-fit:contain;">
+        <div id="perspectiveLayer">
+          <img id="imgMapa" src="../mapa brasil 1.jpg" draggable="false" style="width:100%;height:100%;object-fit:contain;">
+          <svg id="highlightsSvg" viewBox="0 0 800 500">
+            <clipPath id="viewBoxClip"><rect x="0" y="0" width="800" height="500"/></clipPath>
+            <g id="highlightsLayer"></g>
+          </svg>
+        </div>
       </div>
     </div>
-
-    <svg id="highlightsSvg" viewBox="0 0 800 500">
-      <clipPath id="viewBoxClip"><rect x="0" y="0" width="800" height="500"/></clipPath>
-      <g id="highlightsLayer"></g>
-    </svg>
 
     <div id="lbTop" class="letterbox"></div>
     <div id="lbBot" class="letterbox"></div>
@@ -310,6 +316,11 @@
     stage.style.height = h + 'px';
     imagem.style.width = w + 'px';
     imagem.style.height = h + 'px';
+    $('highlightsSvg').setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    $('highlightsSvg').style.width = w + 'px';
+    $('highlightsSvg').style.height = h + 'px';
+    var clipRect = document.querySelector('#viewBoxClip rect');
+    if (clipRect) { clipRect.setAttribute('width', w); clipRect.setAttribute('height', h); }
     CENTRO_X = 0;
     CENTRO_Y = 0;
     camera.zoomCenterX = 400;
@@ -389,8 +400,7 @@
       overflow: viewport.style.overflow, marginLeft: viewport.style.marginLeft,
       marginTop: viewport.style.marginTop, top: viewport.style.top, left: viewport.style.left,
       blurPos: blurWrapper.style.position, blurW: blurWrapper.style.width, blurH: blurWrapper.style.height,
-      sbParent: $('statusBar').parentNode, sbNext: $('statusBar').nextSibling,
-      hlParent: $('highlightsSvg').parentNode, hlNext: $('highlightsSvg').nextSibling
+      sbParent: $('statusBar').parentNode, sbNext: $('statusBar').nextSibling
     };
 
     viewport.style.transform = 'scale(1)';
@@ -407,12 +417,6 @@
     $('statusBar').style.top = '0';
     $('statusBar').style.left = '0';
     $('statusBar').style.width = '100%';
-
-    blurWrapper.appendChild($('highlightsSvg'));
-    $('highlightsSvg').style.position = 'absolute';
-    $('highlightsSvg').style.top = '0';
-    $('highlightsSvg').style.left = '0';
-    $('highlightsSvg').style.pointerEvents = 'none';
 
     blurWrapper.style.position = 'relative';
     blurWrapper.style.width = (IMG_W * fitZoom) + 'px';
@@ -480,13 +484,6 @@
           _vpState.sbParent.appendChild($('statusBar'));
         }
       }
-      if (_vpState.hlParent) {
-        if (_vpState.hlNext) {
-          _vpState.hlParent.insertBefore($('highlightsSvg'), _vpState.hlNext);
-        } else {
-          _vpState.hlParent.appendChild($('highlightsSvg'));
-        }
-      }
       $('statusBar').style.position = 'absolute';
       $('statusBar').style.top = '0';
       $('statusBar').style.left = '0';
@@ -494,9 +491,9 @@
       _vpState = null;
     }
 
-    $('highlightsSvg').setAttribute('viewBox', '0 0 800 500');
-    $('highlightsSvg').style.width = '800px';
-    $('highlightsSvg').style.height = '500px';
+    $('highlightsSvg').setAttribute('viewBox', '0 0 ' + IMG_W + ' ' + IMG_H);
+    $('highlightsSvg').style.width = IMG_W + 'px';
+    $('highlightsSvg').style.height = IMG_H + 'px';
     $('highlightsSvg').style.position = 'absolute';
     $('highlightsSvg').style.top = '0';
     $('highlightsSvg').style.left = '0';
@@ -1407,8 +1404,7 @@
   function applyTransform() {
     if (marcacaoAtiva) {
       stage.style.transform = '';
-      imagem.style.transform = '';
-      $('highlightsLayer').style.transform = '';
+      $('perspectiveLayer').style.transform = '';
       return;
     }
     var baseP = Math.max(IMG_W, IMG_H) * 1.6;
@@ -1423,20 +1419,11 @@
       'translate(' + (-hw).toFixed(2) + 'px,' + (-hh).toFixed(2) + 'px)';
     stage.style.transformOrigin = '0 0';
 
-    imagem.style.transform =
+    $('perspectiveLayer').style.transform =
       'perspective(' + P + 'px) ' +
       'rotateX(' + camera.rotationX.toFixed(2) + 'deg) ' +
       'rotateY(' + camera.rotationY.toFixed(2) + 'deg)';
-    imagem.style.transformOrigin = hw + 'px ' + hh + 'px';
-
-    var hl = $('highlightsLayer');
-    hl.style.transform =
-      'translate(400px,250px) ' +
-      'rotate(' + camera.rotationZ.toFixed(2) + 'deg) ' +
-      'scale(' + camera.zoom + ') ' +
-      'translate(' + camera.tx.toFixed(2) + 'px,' + camera.ty.toFixed(2) + 'px) ' +
-      'translate(' + (-hw).toFixed(2) + 'px,' + (-hh).toFixed(2) + 'px)';
-    hl.style.transformOrigin = '0 0';
+    $('perspectiveLayer').style.transformOrigin = hw + 'px ' + hh + 'px';
   }
 
   function salvarEstado() {
