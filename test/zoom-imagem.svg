@@ -1,4 +1,9 @@
-<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" tabindex="0" id="svgRaiz">
+<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" tabindex="0" id="svgRaiz"
+     width="100vw" height="100vh" style="display:block;position:fixed;top:0;left:0;background:#000;">
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+    svg { display: block; }
+  </style>
 
   <defs>
     <filter id="cameraBlur">
@@ -6,9 +11,13 @@
     </filter>
   </defs>
 
+  <rect width="800" height="500" fill="#000" />
+
   <g id="camadaZoom" filter="url(#cameraBlur)">
     <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" />
   </g>
+
+  <g id="toolbars">
 
   <!-- Barra de status no topo -->
   <rect id="statusBg" x="0" y="0" width="800" height="28" fill="rgba(0,0,0,0.55)" />
@@ -120,6 +129,7 @@
           var ch = document.getElementById(checks[j]);
           if (ch) estado[checks[j]] = ch.checked;
         }
+        estado['modoExibicao'] = modoExibicao;
         localStorage.setItem('SVG_ZOOM_STATE', JSON.stringify(estado));
       } catch(e) {}
     }
@@ -152,6 +162,12 @@
           var ch = document.getElementById(checks[j]);
           if (ch && estado[checks[j]] !== undefined) ch.checked = estado[checks[j]];
         }
+
+        if (estado['modoExibicao'] !== undefined) {
+          modoExibicao = estado['modoExibicao'];
+          var checkEl = document.getElementById('modoExibCheck');
+          if (checkEl) checkEl.textContent = modoExibicao ? '\u2713' : '';
+        }
       } catch(e) {}
     }
 
@@ -175,6 +191,7 @@
 
     var rodando = false;
     var kfSelecionado = 1;
+    var modoExibicao = false;
 
     var zoomEnabled = true;
     var blurEnabled = true;
@@ -409,6 +426,10 @@
         atualizarProgressBar(1.0);
         rodando = false;
         setKFSelection(2);
+        if (modoExibicao) {
+          H.get('toolbars').setAttribute('display', 'inline');
+          H.get('modoExibicao').setAttribute('display', 'inline');
+        }
         g('playLabel').textContent = '\u25B6';
         statusBg.setAttribute('fill', 'rgba(0,0,0,0.55)');
         statusText.textContent = 'Animação concluída — ajuste os parâmetros e pressione ▶ PLAY';
@@ -457,6 +478,10 @@
       }
 
       atualizarProgressBar(0);
+      if (modoExibicao) {
+        H.get('toolbars').setAttribute('display', 'none');
+        H.get('modoExibicao').setAttribute('display', 'none');
+      }
       rodando = true;
       g('playLabel').textContent = '\u25A0';
       statusBg.setAttribute('fill', 'rgba(76,175,80,0.6)');
@@ -507,6 +532,10 @@
         event.preventDefault();
         if (!rodando) setKFSelection(1);
       }
+      if (event.code === 'End') {
+        event.preventDefault();
+        if (!rodando) setKFSelection(2);
+      }
       if (event.code === 'Space') {
         event.preventDefault();
         iniciar();
@@ -537,6 +566,12 @@
       atualizarLabelsSliders();
       atualizarKFInfo();
       atualizarStatus();
+
+      H.get('modoExibicao').addEventListener('click', function() {
+        modoExibicao = !modoExibicao;
+        var checkEl = H.get('modoExibCheck');
+        checkEl.textContent = modoExibicao ? '\u2713' : '';
+      });
     }
     setTimeout(function() { initQuandoPronto(); }, 200);
     var pollTimer = setInterval(function() {
@@ -667,5 +702,14 @@
       </div>
     </div>
   </foreignObject>
+
+  </g>
+
+  <!-- Checkbox Modo Exibição (fora do grupo toolbars, sempre visível) -->
+  <g id="modoExibicao" cursor="pointer">
+    <rect x="660" y="4" width="14" height="14" rx="2" fill="rgba(0,0,0,0.5)" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" />
+    <text id="modoExibCheck" x="667" y="16" font-family="Arial, sans-serif" font-size="12" fill="white" text-anchor="middle" dominant-baseline="middle"></text>
+    <text x="680" y="18" font-family="Arial, sans-serif" font-size="11" fill="white" dominant-baseline="middle">Modo Exibição</text>
+  </g>
 
 </svg>
