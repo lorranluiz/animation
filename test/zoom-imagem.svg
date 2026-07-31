@@ -56,17 +56,27 @@
     <circle id="kf1Inner" cx="40" cy="326" r="3" fill="#4CAF50" />
   </g>
   <text x="40" y="344" font-family="Arial, sans-serif" font-size="10" fill="#ccc" text-anchor="middle">INÍCIO</text>
+  <text x="40" y="355" font-family="Arial, sans-serif" font-size="9" fill="#999" text-anchor="middle">0.0s</text>
 
   <!-- Keyframe 2 (Fim) -->
-  <g id="kf2" cursor="pointer">
+  <g id="kf2" cursor="grab">
     <circle id="kf2Outer" cx="760" cy="326" r="8" fill="#333" stroke="#aaa" stroke-width="2" />
     <circle id="kf2Inner" cx="760" cy="326" r="3" fill="#4CAF50" display="none" />
   </g>
-  <text x="760" y="344" font-family="Arial, sans-serif" font-size="10" fill="#ccc" text-anchor="middle">FIM</text>
+  <text id="fimLabel" x="760" y="344" font-family="Arial, sans-serif" font-size="10" fill="#ccc" text-anchor="middle">FIM</text>
+  <text id="tempoKF2Label" x="760" y="355" font-family="Arial, sans-serif" font-size="9" fill="#999" text-anchor="middle">5.0s</text>
+
+  <!-- Linha vertical no KF2 (guia) -->
+  <line id="kf2Tick" x1="760" y1="319" x2="760" y2="348" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
+
+  <!-- Duração da timeline no centro -->
+  <text x="400" y="355" font-family="Arial, sans-serif" font-size="9" fill="#999" text-anchor="middle">
+    Duração total: <tspan id="duracaoLabel">5.0</tspan>s
+  </text>
 
   <!-- Info do keyframe selecionado -->
-  <text id="kfInfo" x="400" y="358" font-family="Courier New, monospace" font-size="11" fill="#FFD700" text-anchor="middle">
-    KF1 (Inicial): Zoom 1.0 | Blur 7 | Pitch -25° Yaw 15° Roll 0°
+  <text id="kfInfo" x="400" y="375" font-family="Courier New, monospace" font-size="11" fill="#FFD700" text-anchor="middle">
+    KF1 (Inicial, 0.0s): Zoom 1.0 | Blur 7 | Pitch -25° Yaw 15° Roll 0°
   </text>
 
   <!-- ============================================================ -->
@@ -133,6 +143,8 @@
           if (ch) estado[checks[j]] = ch.checked;
         }
         estado['modoExibicao'] = modoExibicao;
+        estado['duracaoSlide'] = g('duracaoSlide') ? g('duracaoSlide').value : 5;
+        estado['tempoKF2Slide'] = g('tempoKF2Slide') ? g('tempoKF2Slide').value : 5;
         localStorage.setItem('SVG_ZOOM_STATE', JSON.stringify(estado));
       } catch(e) {}
     }
@@ -170,6 +182,14 @@
           modoExibicao = estado['modoExibicao'];
           var checkEl = document.getElementById('modoExibCheck');
           if (checkEl) checkEl.textContent = modoExibicao ? '\u2713' : '';
+        }
+
+        if (estado['duracaoSlide'] !== undefined) {
+          g('duracaoSlide').value = estado['duracaoSlide'];
+          g('tempoKF2Slide').max = estado['duracaoSlide'];
+        }
+        if (estado['tempoKF2Slide'] !== undefined) {
+          g('tempoKF2Slide').value = estado['tempoKF2Slide'];
         }
       } catch(e) {}
     }
@@ -217,6 +237,9 @@
     var txIni = 0;
     var tyIni = 0;
 
+    var duracaoTotal = 5;
+    var tempoKF2 = 5;
+
     function lerSliders() {
       var el;
       targetZoom = (el = g('zoomFimSlide')) ? (el.value / 10) : 1.5;
@@ -241,6 +264,11 @@
       camera.blurSmoothness = (el = g('blurVelSlide')) ? (el.value / 1000) : 0.02;
       camera.rotationSmoothness = (el = g('rotVelSlide')) ? (el.value / 1000) : 0.02;
       camera.translateSmoothness = (el = g('translVelSlide')) ? (el.value / 1000) : 0.02;
+
+      duracaoTotal = (el = g('duracaoSlide')) ? parseInt(el.value) : 5;
+      tempoKF2 = (el = g('tempoKF2Slide')) ? parseFloat(el.value) : 5;
+      if (tempoKF2 > duracaoTotal) tempoKF2 = duracaoTotal;
+      if (tempoKF2 < 0.5) tempoKF2 = 0.5;
 
       zoomEnabled = g('chkZoom') ? g('chkZoom').checked : true;
       blurEnabled = g('chkBlur') ? g('chkBlur').checked : true;
@@ -270,20 +298,34 @@
       var txf = g('translTxFimSlide'); if (txf) g('lblTranslTxFim').textContent = txf.value;
       var tyf = g('translTyFimSlide'); if (tyf) g('lblTranslTyFim').textContent = tyf.value;
       var tvl = g('translVelSlide'); if (tvl) g('lblTranslVel').textContent = (tvl.value/1000).toFixed(3);
-      var rvl = g('rotVelSlide'); if (rvl) g('lblRotVel').textContent = (rvl.value/1000).toFixed(3);
+      var dur = g('duracaoSlide'); if (dur) { g('lblDuracao').textContent = dur.value + 's'; g('tempoKF2Slide').max = dur.value; if (parseFloat(g('tempoKF2Slide').value) > parseInt(dur.value)) g('tempoKF2Slide').value = dur.value; }
+      var t2 = g('tempoKF2Slide'); if (t2) g('lblTempoKF2').textContent = parseFloat(t2.value).toFixed(1) + 's';
+      g('duracaoLabel').textContent = duracaoTotal.toFixed(1);
+      g('tempoKF2Label').textContent = tempoKF2.toFixed(1) + 's';
+      posicionarKF2();
+    }
+
+    function atualizarPosicaoTimeline() {
+      if (duracaoTotal <= 0) return;
+      var xFim = 40 + 720 * (tempoKF2 / duracaoTotal);
+      xFim = Math.max(40, Math.min(760, xFim));
+      g('kf2Outer').setAttribute('cx', xFim);
+      g('kf2Inner').setAttribute('cx', xFim);
+      g('fimLabel').setAttribute('x', xFim);
+      g('tempoKF2Label').setAttribute('x', xFim);
     }
 
     function atualizarKFInfo() {
       if (kfSelecionado === 1) {
         kfInfo.textContent =
-        'KF1 (Inicial): Zoom ' + zoomIni.toFixed(1) +
+        'KF1 (Inicial, 0.0s): Zoom ' + zoomIni.toFixed(1) +
         ' | Blur ' + blurIni +
         ' | Pitch ' + rotXIni + '°  Yaw ' + rotYIni +
         '°  Roll ' + rotZIni + '°' +
         ' | Tx ' + txIni + '  Ty ' + tyIni;
       } else {
         kfInfo.textContent =
-        'KF2 (Final):   Zoom ' + targetZoom.toFixed(1) +
+        'KF2 (Final, ' + tempoKF2.toFixed(1) + 's): Zoom ' + targetZoom.toFixed(1) +
         ' | Blur ' + targetBlur +
         ' | Pitch ' + targetRotX + '°  Yaw ' + targetRotY +
         '°  Roll ' + targetRotZ + '°' +
@@ -348,85 +390,66 @@
         'Tx: ' + camera.tx.toFixed(0) + '  Ty: ' + camera.ty.toFixed(0);
     }
 
-    function calcularProgresso() {
-      var componentes = 0;
-      var total = 0;
-
-      if (zoomEnabled && targetZoom !== zoomIni) {
-        componentes += Math.abs(camera.zoom - zoomIni) / Math.abs(targetZoom - zoomIni);
-        total++;
-      }
-      if (blurEnabled && targetBlur !== blurIni) {
-        componentes += Math.abs(camera.blur - blurIni) / Math.abs(targetBlur - blurIni);
-        total++;
-      }
-      if (rotEnabled) {
-        var diffs = 0;
-        var diffsTotal = 0;
-        if (targetRotX !== rotXIni) {
-          diffs += Math.abs(camera.rotationX - rotXIni) / Math.abs(targetRotX - rotXIni);
-          diffsTotal++;
-        }
-        if (targetRotY !== rotYIni) {
-          diffs += Math.abs(camera.rotationY - rotYIni) / Math.abs(targetRotY - rotYIni);
-          diffsTotal++;
-        }
-        if (targetRotZ !== rotZIni) {
-          diffs += Math.abs(camera.rotationZ - rotZIni) / Math.abs(targetRotZ - rotZIni);
-          diffsTotal++;
-        }
-        if (diffsTotal > 0) {
-          componentes += diffs / diffsTotal;
-          total++;
-        }
-      }
-      if (translEnabled) {
-        var translDiffs = 0;
-        var translTotal = 0;
-        if (targetTx !== txIni) {
-          translDiffs += Math.abs(camera.tx - txIni) / Math.abs(targetTx - txIni);
-          translTotal++;
-        }
-        if (targetTy !== tyIni) {
-          translDiffs += Math.abs(camera.ty - tyIni) / Math.abs(targetTy - tyIni);
-          translTotal++;
-        }
-        if (translTotal > 0) {
-          componentes += translDiffs / translTotal;
-          total++;
-        }
-      }
-
-      return total > 0 ? Math.min(componentes / total, 1.0) : 0;
-    }
-
     function atualizarProgressBar(prog) {
       progressBar.setAttribute('width', prog * T_BAR_W);
     }
 
-    function animar() {
-      camera.update();
+    function posicionarKF2() {
+      var tx = T_BAR_X + (tempoKF2 / Math.max(duracaoTotal, 1)) * T_BAR_W;
+      tx = Math.max(T_BAR_X, Math.min(T_BAR_X + T_BAR_W, tx));
+      setKF2PositionPX(tx);
+    }
+
+    function setKF2PositionPX(px) {
+      px = Math.max(T_BAR_X, Math.min(T_BAR_X + T_BAR_W, px));
+      g('kf2Outer').setAttribute('cx', px);
+      g('kf2Inner').setAttribute('cx', px);
+      g('fimLabel').setAttribute('x', px);
+      g('tempoKF2Label').setAttribute('x', px);
+      g('kf2Tick').setAttribute('x1', px);
+      g('kf2Tick').setAttribute('x2', px);
+    }
+
+    var inicioTimestamp = null;
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function animar(timestamp) {
+      if (inicioTimestamp === null) inicioTimestamp = timestamp;
+      var decorrido = Math.min((timestamp - inicioTimestamp) / 1000, tempoKF2);
+      var fator = tempoKF2 > 0 ? decorrido / tempoKF2 : 1.0;
+
+      if (zoomEnabled) camera.zoom = lerp(zoomIni, targetZoom, fator);
+      if (blurEnabled) camera.blur = lerp(blurIni, targetBlur, fator);
+      if (rotEnabled) {
+        camera.rotationX = lerp(rotXIni, targetRotX, fator);
+        camera.rotationY = lerp(rotYIni, targetRotY, fator);
+        camera.rotationZ = lerp(rotZIni, targetRotZ, fator);
+      }
+      if (translEnabled) {
+        camera.tx = lerp(txIni, targetTx, fator);
+        camera.ty = lerp(tyIni, targetTy, fator);
+      }
+
+      if (camera.blurFilterId) {
+        var filterEl = document.getElementById(camera.blurFilterId);
+        if (filterEl) filterEl.setAttribute('stdDeviation', camera.blur);
+      }
+
       camada.style.transform = camera.getCameraTransform();
       camada.style.transformOrigin = '0 0';
       atualizarStatus();
 
-      var prog = calcularProgresso();
-      atualizarProgressBar(prog);
+      var kf2X = parseFloat(g('kf2Outer').getAttribute('cx'));
+      progressBar.setAttribute('width', Math.max(0, (kf2X - T_BAR_X) * fator));
 
-      var zoomOk = !zoomEnabled || Math.abs(camera.zoom - targetZoom) < 0.001;
-      var blurOk = !blurEnabled || Math.abs(camera.blur - targetBlur) < 0.01;
-      var rotOk  = !rotEnabled  || (
-        Math.abs(camera.rotationX - targetRotX) < 0.01 &&
-        Math.abs(camera.rotationY - targetRotY) < 0.01 &&
-        Math.abs(camera.rotationZ - targetRotZ) < 0.01);
-      var translOk = !translEnabled || (
-        Math.abs(camera.tx - targetTx) < 0.5 &&
-        Math.abs(camera.ty - targetTy) < 0.5);
-
-      if (!zoomOk || !blurOk || !rotOk || !translOk) {
+      if (decorrido < tempoKF2) {
         requestAnimationFrame(animar);
       } else {
-        atualizarProgressBar(1.0);
+        var kf2XEnd = parseFloat(g('kf2Outer').getAttribute('cx'));
+        progressBar.setAttribute('width', Math.max(0, kf2XEnd - T_BAR_X));
         rodando = false;
         setKFSelection(2);
         if (modoExibicao) {
@@ -445,14 +468,12 @@
 
       if (zoomEnabled) {
         camera.zoom = zoomIni;
-        camera._targetZoom = targetZoom;
       } else {
         camera._targetZoom = camera.zoom;
       }
 
       if (blurEnabled) {
         camera.blur = blurIni;
-        camera._targetBlur = targetBlur;
       } else {
         camera._targetBlur = camera.blur;
       }
@@ -461,9 +482,6 @@
         camera.rotationX = rotXIni;
         camera.rotationY = rotYIni;
         camera.rotationZ = rotZIni;
-        camera._targetRotationX = targetRotX;
-        camera._targetRotationY = targetRotY;
-        camera._targetRotationZ = targetRotZ;
       } else {
         camera._targetRotationX = camera.rotationX;
         camera._targetRotationY = camera.rotationY;
@@ -473,18 +491,17 @@
       if (translEnabled) {
         camera.tx = txIni;
         camera.ty = tyIni;
-        camera._targetTx = targetTx;
-        camera._targetTy = targetTy;
       } else {
         camera._targetTx = camera.tx;
         camera._targetTy = camera.ty;
       }
 
-      atualizarProgressBar(0);
+      progressBar.setAttribute('width', '0');
       if (modoExibicao) {
         H.get('toolbars').setAttribute('display', 'none');
         H.get('modoExibicao').setAttribute('display', 'none');
       }
+      inicioTimestamp = null;
       rodando = true;
       g('playLabel').textContent = '\u25A0';
       statusBg.setAttribute('fill', 'rgba(76,175,80,0.6)');
@@ -550,9 +567,12 @@
     var mouseIniY = 0;
     var txAnchor = 0;
     var tyAnchor = 0;
+    var draggingKF2 = false;
+    var kf2AnchorTime = 0;
 
     H.get('overlayMouse').addEventListener('mousedown', function(e) {
       if (rodando) return;
+
       arrastando = true;
       mouseIniX = e.clientX;
       mouseIniY = e.clientY;
@@ -561,7 +581,30 @@
       tyAnchor = (kfSelecionado === 1) ? tyIni : targetTy;
     });
 
+    H.get('kf2').addEventListener('mousedown', function(e) {
+      if (rodando) return;
+      e.stopPropagation();
+      draggingKF2 = true;
+      kf2AnchorTime = tempoKF2;
+      mouseIniX = e.clientX;
+    });
+
     window.addEventListener('mousemove', function(e) {
+      if (draggingKF2 && !rodando) {
+        var rect = H.get('svgRaiz').getBoundingClientRect();
+        var scaleX = 800 / rect.width;
+        var dx = (e.clientX - mouseIniX) * scaleX;
+        var rawTempo = kf2AnchorTime + (dx / T_BAR_W) * duracaoTotal;
+        rawTempo = Math.max(0.5, Math.min(duracaoTotal, rawTempo));
+        var posX = T_BAR_X + (rawTempo / duracaoTotal) * T_BAR_W;
+        setKF2PositionPX(posX);
+
+        var rounded = Math.round(rawTempo * 10) / 10;
+        g('tempoKF2Slide').value = rounded;
+        g('lblTempoKF2').textContent = rounded.toFixed(1) + 's';
+        g('tempoKF2Label').textContent = rounded.toFixed(1) + 's';
+        return;
+      }
       if (!arrastando || rodando) return;
       var dx = e.clientX - mouseIniX;
       var dy = e.clientY - mouseIniY;
@@ -580,6 +623,15 @@
 
     window.addEventListener('mouseup', function(e) {
       arrastando = false;
+      if (draggingKF2) {
+        draggingKF2 = false;
+        var finalTempo = Math.max(0.5, Math.min(duracaoTotal, Math.round(tempoKF2 * 10) / 10));
+        g('tempoKF2Slide').value = parseFloat(g('tempoKF2Slide').value);
+        lerSliders();
+        atualizarLabelsSliders();
+        atualizarKFInfo();
+        salvarEstado();
+      }
     });
 
     H.get('overlayMouse').addEventListener('wheel', function(e) {
@@ -596,6 +648,37 @@
       atualizarKFInfo();
       aplicarValoresAtuais();
       salvarEstado();
+    });
+
+    var arrastandoKF2 = false;
+    H.get('kf2').addEventListener('mousedown', function(e) {
+      if (rodando) return;
+      e.stopPropagation();
+      arrastandoKF2 = true;
+      H.get('kf2').setAttribute('cursor', 'grabbing');
+    });
+
+    window.addEventListener('mousemove', function(e) {
+      if (!arrastandoKF2 || rodando) return;
+      var rect = H.get('svgRaiz').getBoundingClientRect();
+      var svgX = (e.clientX - rect.left) / rect.width * 800;
+      var novoX = Math.max(40, Math.min(760, svgX));
+      var novoTempo = duracaoTotal > 0 ? ((novoX - 40) / 720) * duracaoTotal : 0;
+      novoTempo = Math.max(0.5, Math.min(duracaoTotal, Math.round(novoTempo * 2) / 2));
+      var el = g('tempoKF2Slide');
+      if (el) el.value = novoTempo;
+      lerSliders();
+      atualizarLabelsSliders();
+      atualizarKFInfo();
+      aplicarValoresAtuais();
+      salvarEstado();
+    });
+
+    window.addEventListener('mouseup', function(e) {
+      if (arrastandoKF2) {
+        arrastandoKF2 = false;
+        H.get('kf2').setAttribute('cursor', 'grab');
+      }
     });
 
     function setupSliderListeners() {
@@ -622,6 +705,7 @@
       atualizarLabelsSliders();
       atualizarKFInfo();
       atualizarStatus();
+      posicionarKF2();
 
       H.get('modoExibicao').addEventListener('click', function() {
         modoExibicao = !modoExibicao;
@@ -640,7 +724,7 @@
     atualizarStatus();
   ]]></script>
 
-  <foreignObject x="0" y="360" width="800" height="140">
+  <foreignObject x="0" y="380" width="800" height="120">
     <div xmlns="http://www.w3.org/1999/xhtml" id="painelControles" style="
       font-family: Arial, sans-serif; font-size: 11px; color: #eee;
       background: rgba(20,20,20,0.85); padding: 6px 8px;
@@ -755,6 +839,17 @@
         <span class="lbl">Vel</span>
         <input type="range" id="translVelSlide" min="5" max="100" value="20" step="1" />
         <span class="val" id="lblTranslVel">0.020</span>
+      </div>
+
+      <!-- Linha Tempo -->
+      <div class="row">
+        <span class="lbl" style="min-width:52px;font-size:11px;color:#eee;">Tempo</span>
+        <span class="lbl">Dur</span>
+        <input type="range" id="duracaoSlide" min="1" max="30" value="5" step="1" />
+        <span class="val" id="lblDuracao">5s</span>
+        <span class="lbl">KF2</span>
+        <input type="range" id="tempoKF2Slide" min="0.5" max="5" value="5" step="0.5" />
+        <span class="val" id="lblTempoKF2">5.0s</span>
       </div>
     </div>
   </foreignObject>
