@@ -115,6 +115,16 @@ SVGAnim.Helpers = (function () {
     return document.getElementById(id);
   }
 
+  /**
+   * Smoothstep ease-in-out: mapeia t (0→1) com suavização cúbica.
+   * f(0)=0, f(1)=1, f'(0)=0, f'(1)=0.
+   * @param {number} t - Valor linear entre 0 e 1
+   * @returns {number} Valor suavizado entre 0 e 1
+   */
+  function easeInOut(t) {
+    return -1.945 * t * t * t + 2.94 * t * t + 0.005 * t;
+  }
+
   return {
     SVG_NS: SVG_NS,
     SVG_WIDTH: SVG_WIDTH,
@@ -125,6 +135,7 @@ SVGAnim.Helpers = (function () {
     worldToScreenX: worldToScreenX,
     worldToScreenY: worldToScreenY,
     worldToScreen: worldToScreen,
-    get: get
+    get: get,
+    easeInOut: easeInOut
   };
 })();

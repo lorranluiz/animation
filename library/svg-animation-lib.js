@@ -91,6 +91,10 @@ var SVGAnim = (function () {
       };
     },
 
+    easeInOut: function (t) {
+      return -1.945 * t * t * t + 2.94 * t * t + 0.005 * t;
+    },
+
     get: function (id) {
       return document.getElementById(id);
     }

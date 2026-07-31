@@ -317,6 +317,7 @@
         if (t >= k0.tempo && t <= k1.tempo) {
           var seg = k1.tempo - k0.tempo;
           var f = seg > 0 ? (t - k0.tempo) / seg : 1;
+          f = H.easeInOut(f);
           var interp = k0.lerp(k1, f);
           if (zoomEnabled) camera.zoom = interp.zoom;
           if (blurEnabled) camera.blur = interp.blur;
