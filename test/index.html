@@ -228,11 +228,9 @@
         <div class="row">
           <label class="chk"><input type="checkbox" id="chkTransl" checked>Trans</label>
           <span class="lbl">Tx</span>
-          <input type="range" id="txSlide" min="-300" max="300" value="0" step="1">
-          <input type="number" id="valTx" value="0" step="1" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;">
+          <input type="number" id="valTx" value="0" step="1" style="width:62px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;">
           <span class="lbl">Ty</span>
-          <input type="range" id="tySlide" min="-300" max="300" value="0" step="1">
-          <input type="number" id="valTy" value="0" step="1" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;">
+          <input type="number" id="valTy" value="0" step="1" style="width:62px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;">
           <span style="min-width:8px"></span>
           <span class="lbl">Duração</span>
           <input type="range" id="duracaoSlide" min="1" max="30" value="10" step="1">
@@ -297,12 +295,10 @@
     CENTRO_Y = 0;
     camera.zoomCenterX = 400;
     camera.zoomCenterY = 250;
-    if (!keepZoom) {
+    if (!keepZoom && !panelReady) {
       var fitZoom = Math.min(800 / w, 500 / h);
       camera.zoom = fitZoom;
       if ($('zoomSlide')) { $('zoomSlide').value = fitZoom.toFixed(2); $('valZoom').value = fitZoom.toFixed(2); }
-      $('txSlide').min = Math.min(-300, -w); $('txSlide').max = Math.max(300, w);
-      $('tySlide').min = Math.min(-300, -h); $('tySlide').max = Math.max(300, h);
       for (var i = 0; i < keyframes.length; i++) {
         keyframes[i].zoom = fitZoom;
         keyframes[i].tx = 0;
@@ -310,7 +306,6 @@
       }
       timeline.keyframes = keyframes;
       camera.tx = 0; camera.ty = 0;
-      $('txSlide').value = 0; $('tySlide').value = 0;
       $('valTx').value = 0; $('valTy').value = 0;
     }
     if (!rodando) { loadSlidersFromKeyframe(keyframes[kfIdx]); applyCurrentValues(); }
@@ -588,8 +583,8 @@
     kf.rotationX = parseInt((el = $('pitchSlide')) ? el.value : 0);
     kf.rotationY = parseInt((el = $('yawSlide')) ? el.value : 0);
     kf.rotationZ = parseInt((el = $('rollSlide')) ? el.value : 0);
-    kf.tx = parseInt((el = $('txSlide')) ? el.value : 0);
-    kf.ty = parseInt((el = $('tySlide')) ? el.value : 0);
+    kf.tx = parseInt((el = $('valTx')) ? el.value : 0);
+    kf.ty = parseInt((el = $('valTy')) ? el.value : 0);
     zoomEnabled = $('chkZoom') ? $('chkZoom').checked : true;
     blurEnabled = $('chkBlur') ? $('chkBlur').checked : true;
     rotEnabled = $('chkRot') ? $('chkRot').checked : true;
@@ -634,8 +629,6 @@
     if ((el = $('pitchSlide'))) $('valPitch').value = el.value;
     if ((el = $('yawSlide'))) $('valYaw').value = el.value;
     if ((el = $('rollSlide'))) $('valRoll').value = el.value;
-    if ((el = $('txSlide'))) $('valTx').value = el.value;
-    if ((el = $('tySlide'))) $('valTy').value = el.value;
     timeline.syncDuracaoSlider($('duracaoSlide'), $('valDuracao'));
   }
 
@@ -645,8 +638,8 @@
     $('pitchSlide').value = Math.round(kf.rotationX); $('valPitch').value = Math.round(kf.rotationX);
     $('yawSlide').value = Math.round(kf.rotationY); $('valYaw').value = Math.round(kf.rotationY);
     $('rollSlide').value = Math.round(kf.rotationZ); $('valRoll').value = Math.round(kf.rotationZ);
-    $('txSlide').value = Math.round(kf.tx); $('valTx').value = Math.round(kf.tx);
-    $('tySlide').value = Math.round(kf.ty); $('valTy').value = Math.round(kf.ty);
+    $('valTx').value = Math.round(kf.tx);
+    $('valTy').value = Math.round(kf.ty);
     atualizarSliderLabels();
   }
 
@@ -1044,12 +1037,10 @@
 
     if (!arrastando || rodando) return;
     var dx = e.clientX - mouseIniX, dy = e.clientY - mouseIniY;
-    var txMin = parseInt($('txSlide').min) || -300, txMax = parseInt($('txSlide').max) || 300;
-    var tyMin = parseInt($('tySlide').min) || -300, tyMax = parseInt($('tySlide').max) || 300;
-    var ntx = Math.round(Math.max(txMin, Math.min(txMax, txAnchor + dx)));
-    var nty = Math.round(Math.max(tyMin, Math.min(tyMax, tyAnchor + dy)));
+    var ntx = Math.round(txAnchor + dx);
+    var nty = Math.round(tyAnchor + dy);
     keyframes[kfIdx].tx = ntx; keyframes[kfIdx].ty = nty;
-    $('txSlide').value = ntx; $('tySlide').value = nty;
+    $('valTx').value = ntx; $('valTy').value = nty;
     atualizarSliderLabels(); applyCurrentValues(); salvarEstado();
   });
 
@@ -1158,7 +1149,7 @@
     var nums = document.querySelectorAll('#valZoom,#valBlur,#valPitch,#valYaw,#valRoll,#valTx,#valTy,#valDuracao');
     for (var j = 0; j < nums.length; j++) {
       nums[j].addEventListener('input', function() {
-        var idMap = { valZoom:'zoomSlide', valBlur:'blurSlide', valPitch:'pitchSlide', valYaw:'yawSlide', valRoll:'rollSlide', valTx:'txSlide', valTy:'tySlide', valDuracao:'duracaoSlide' };
+        var idMap = { valZoom:'zoomSlide', valBlur:'blurSlide', valPitch:'pitchSlide', valYaw:'yawSlide', valRoll:'rollSlide', valDuracao:'duracaoSlide' };
         var sliderId = idMap[this.id];
         if (sliderId) { var s = $(sliderId); if (s) s.value = this.value; }
         lerSliders(); atualizarSliderLabels(); updateKeyframeSelection(); reposicionarTodosDots(); salvarEstado();
@@ -1244,7 +1235,7 @@
     restaurando = true;
     fetch('/state')
       .then(function(r) { return r.json(); })
-      .then(function(st) { if (st && st.imagem) aplicarEstado(st); })
+      .then(function(st) { if (st) aplicarEstado(st); })
       .catch(function() {})
       .then(function() {
         setupSliderListeners();
