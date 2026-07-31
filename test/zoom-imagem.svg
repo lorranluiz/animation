@@ -21,10 +21,10 @@
   </g>
 
   <!-- Barras de letterbox (máscara de resolução + frame externo) -->
-  <rect id="lbTop" x="-2000" y="-2000" width="5000" height="2000" fill="#000" opacity="0" />
-  <rect id="lbBot" x="-2000" y="500" width="5000" height="2000" fill="#000" opacity="0" />
-  <rect id="lbLeft" x="-2000" y="0" width="2000" height="500" fill="#000" opacity="0" />
-  <rect id="lbRight" x="800" y="0" width="2000" height="500" fill="#000" opacity="0" />
+  <rect id="lbTop" x="-10000" y="-10000" width="25000" height="10000" fill="#000" opacity="0" />
+  <rect id="lbBot" x="-10000" y="500" width="25000" height="10000" fill="#000" opacity="0" />
+  <rect id="lbLeft" x="-10000" y="0" width="10000" height="500" fill="#000" opacity="0" />
+  <rect id="lbRight" x="800" y="0" width="10000" height="500" fill="#000" opacity="0" />
 
   <!-- Guias tracejadas da área de resolução (visíveis só na edição) -->
   <line id="guideTop" x1="0" y1="25" x2="800" y2="25" stroke="rgba(255,255,255,0.3)" stroke-dasharray="6,3" stroke-width="1.5" opacity="0" />
@@ -120,10 +120,10 @@
       if (opac === undefined) opac = rodando ? 1 : 0.4;
       var guideOp = opac === 1 ? 0 : 1;
 
-      g('lbTop').setAttribute('height', '2000'); g('lbTop').setAttribute('opacity', opac);
-      g('lbBot').setAttribute('y', '500'); g('lbBot').setAttribute('height', '2000'); g('lbBot').setAttribute('opacity', opac);
-      g('lbLeft').setAttribute('width', '2000'); g('lbLeft').setAttribute('opacity', opac);
-      g('lbRight').setAttribute('x', '800'); g('lbRight').setAttribute('width', '2000'); g('lbRight').setAttribute('opacity', opac);
+      g('lbTop').setAttribute('height', '10000'); g('lbTop').setAttribute('opacity', opac);
+      g('lbBot').setAttribute('y', '500'); g('lbBot').setAttribute('height', '10000'); g('lbBot').setAttribute('opacity', opac);
+      g('lbLeft').setAttribute('width', '10000'); g('lbLeft').setAttribute('opacity', opac);
+      g('lbRight').setAttribute('x', '800'); g('lbRight').setAttribute('width', '10000'); g('lbRight').setAttribute('opacity', opac);
 
       g('guideTop').setAttribute('opacity', 0);
       g('guideBot').setAttribute('opacity', 0);
@@ -131,13 +131,22 @@
       g('guideRight').setAttribute('opacity', 0);
 
       if (resolucao === 'youtube') {
-        g('lbTop').setAttribute('height', '2025');
-        g('lbBot').setAttribute('y', '475');
+        var hYT = 800 * 9 / 16;
+        var tm = (500 - hYT) / 2;
+        g('lbTop').setAttribute('height', String(10000 + tm));
+        g('lbBot').setAttribute('y', String(tm + hYT));
+        g('guideTop').setAttribute('y1', String(tm)); g('guideTop').setAttribute('y2', String(tm));
+        g('guideBot').setAttribute('y1', String(tm + hYT)); g('guideBot').setAttribute('y2', String(tm + hYT));
         g('guideTop').setAttribute('opacity', guideOp);
         g('guideBot').setAttribute('opacity', guideOp);
       } else if (resolucao === 'instagram') {
-        g('lbLeft').setAttribute('width', '2260');
-        g('lbRight').setAttribute('x', '540');
+        var w = Math.floor(500 * 9 / 18);
+        var lm = Math.floor((800 - w) / 2);
+        var rm = 800 - lm;
+        g('lbLeft').setAttribute('width', String(10000 + lm));
+        g('lbRight').setAttribute('x', String(rm));
+        g('guideLeft').setAttribute('x1', String(lm)); g('guideLeft').setAttribute('x2', String(lm));
+        g('guideRight').setAttribute('x1', String(rm)); g('guideRight').setAttribute('x2', String(rm));
         g('guideLeft').setAttribute('opacity', guideOp);
         g('guideRight').setAttribute('opacity', guideOp);
       }
