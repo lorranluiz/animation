@@ -26,6 +26,12 @@
   <rect id="lbLeft" x="-2000" y="0" width="2000" height="500" fill="#000" opacity="0" />
   <rect id="lbRight" x="800" y="0" width="2000" height="500" fill="#000" opacity="0" />
 
+  <!-- Guias tracejadas da área de resolução (visíveis só na edição) -->
+  <line id="guideTop" x1="0" y1="25" x2="800" y2="25" stroke="rgba(255,255,255,0.3)" stroke-dasharray="6,3" stroke-width="1.5" opacity="0" />
+  <line id="guideBot" x1="0" y1="475" x2="800" y2="475" stroke="rgba(255,255,255,0.3)" stroke-dasharray="6,3" stroke-width="1.5" opacity="0" />
+  <line id="guideLeft" x1="260" y1="0" x2="260" y2="500" stroke="rgba(255,255,255,0.3)" stroke-dasharray="6,3" stroke-width="1.5" opacity="0" />
+  <line id="guideRight" x1="540" y1="0" x2="540" y2="500" stroke="rgba(255,255,255,0.3)" stroke-dasharray="6,3" stroke-width="1.5" opacity="0" />
+
   <g id="toolbars">
 
   <rect id="overlayMouse" x="0" y="0" width="800" height="500" fill="none" pointer-events="visible" />
@@ -33,24 +39,34 @@
   <rect id="statusBg" x="0" y="0" width="800" height="28" fill="rgba(0,0,0,0.55)" />
   <text id="statusText" x="400" y="19" font-family="Arial, sans-serif" font-size="13" fill="white" text-anchor="middle">Pressione ▶ PLAY para iniciar a animação</text>
 
-  <g id="btnPlay" cursor="pointer">
-    <rect x="6" y="3" width="40" height="22" rx="4" fill="#4CAF50" stroke="#388E3C" stroke-width="1.5" />
-    <text id="playLabel" x="26" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#9654;</text>
-  </g>
-
   <g id="btnUpload" cursor="pointer">
-    <rect x="52" y="3" width="40" height="22" rx="4" fill="#2196F3" stroke="#1976D2" stroke-width="1.5" />
-    <text x="72" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#128193;</text>
+    <rect x="6" y="3" width="40" height="22" rx="4" fill="#2196F3" stroke="#1976D2" stroke-width="1.5" />
+    <text x="26" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#127748;</text>
   </g>
 
-  <g id="btnReset" cursor="pointer">
-    <rect x="96" y="3" width="60" height="22" rx="4" fill="#555" stroke="#777" stroke-width="1" />
-    <text x="126" y="19" font-family="Arial, sans-serif" font-size="11" fill="#ccc" text-anchor="middle" dominant-baseline="middle">Reset</text>
+  <g id="btnOpen" cursor="pointer">
+    <rect x="52" y="3" width="40" height="22" rx="4" fill="#FF9800" stroke="#F57C00" stroke-width="1.5" />
+    <text x="72" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#128194;</text>
+  </g>
+
+  <g id="btnPlay" cursor="pointer">
+    <rect x="98" y="3" width="40" height="22" rx="4" fill="#4CAF50" stroke="#388E3C" stroke-width="1.5" />
+    <text id="playLabel" x="118" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#9654;</text>
+  </g>
+
+  <g id="btnSave" cursor="pointer">
+    <rect x="144" y="3" width="40" height="22" rx="4" fill="#9C27B0" stroke="#7B1FA2" stroke-width="1.5" />
+    <text x="164" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#128190;</text>
   </g>
 
   <g id="btnRecord" cursor="pointer">
-    <rect x="244" y="3" width="80" height="22" rx="4" fill="#F44336" stroke="#C62828" stroke-width="1.5" />
-    <text id="recordLabel" x="284" y="19" font-family="Arial, sans-serif" font-size="11" fill="white" text-anchor="middle" dominant-baseline="middle">&#9679; Gravar</text>
+    <rect x="190" y="3" width="40" height="22" rx="4" fill="#F44336" stroke="#C62828" stroke-width="1.5" />
+    <text id="recordLabel" x="210" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#9679;</text>
+  </g>
+
+  <g id="btnReset" cursor="pointer">
+    <rect x="236" y="3" width="40" height="22" rx="4" fill="#555" stroke="#777" stroke-width="1" />
+    <text x="256" y="19" font-family="Arial, sans-serif" font-size="14" fill="#ccc" text-anchor="middle" dominant-baseline="middle">&#128465;</text>
   </g>
 
   <!-- Timeline -->
@@ -102,18 +118,28 @@
 
     function aplicarLetterbox(opac) {
       if (opac === undefined) opac = rodando ? 1 : 0.4;
+      var guideOp = opac === 1 ? 0 : 1;
 
       g('lbTop').setAttribute('height', '2000'); g('lbTop').setAttribute('opacity', opac);
       g('lbBot').setAttribute('y', '500'); g('lbBot').setAttribute('height', '2000'); g('lbBot').setAttribute('opacity', opac);
       g('lbLeft').setAttribute('width', '2000'); g('lbLeft').setAttribute('opacity', opac);
       g('lbRight').setAttribute('x', '800'); g('lbRight').setAttribute('width', '2000'); g('lbRight').setAttribute('opacity', opac);
 
+      g('guideTop').setAttribute('opacity', 0);
+      g('guideBot').setAttribute('opacity', 0);
+      g('guideLeft').setAttribute('opacity', 0);
+      g('guideRight').setAttribute('opacity', 0);
+
       if (resolucao === 'youtube') {
         g('lbTop').setAttribute('height', '2025');
         g('lbBot').setAttribute('y', '475');
+        g('guideTop').setAttribute('opacity', guideOp);
+        g('guideBot').setAttribute('opacity', guideOp);
       } else if (resolucao === 'instagram') {
         g('lbLeft').setAttribute('width', '2260');
         g('lbRight').setAttribute('x', '540');
+        g('guideLeft').setAttribute('opacity', guideOp);
+        g('guideRight').setAttribute('opacity', guideOp);
       }
     }
 
@@ -404,8 +430,43 @@
 
     H.get('btnUpload').addEventListener('click', function() { var fi = g('fileInput'); if (fi) fi.click(); });
 
+    H.get('btnSave').addEventListener('click', function() {
+      lerSliders(); salvarEstado();
+      var json = localStorage.getItem('SVG_ZOOM_STATE');
+      if (!json) { statusText.textContent = 'Nada para salvar.'; return; }
+      var blob = new Blob([json], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElementNS('http://www.w3.org/1999/xhtml', 'a');
+      a.href = url; a.download = 'projeto-animacao.json';
+      document.documentElement.appendChild(a); a.click();
+      document.documentElement.removeChild(a); URL.revokeObjectURL(url);
+      statusText.textContent = 'Projeto salvo como projeto-animacao.json';
+    });
+
+    H.get('btnOpen').addEventListener('click', function() {
+      var pi = g('projInput'); if (pi) pi.click();
+    });
+
+    document.addEventListener('change', function(e) {
+      if (e.target && e.target.id === 'projInput') {
+        var file = e.target.files[0]; if (!file) return;
+        var r = new FileReader();
+        r.onload = function(ev) {
+          try {
+            var data = JSON.parse(ev.target.result);
+            localStorage.setItem('SVG_ZOOM_STATE', JSON.stringify(data));
+            location.reload();
+          } catch(ex) {
+            statusText.textContent = 'Arquivo inválido.';
+          }
+        };
+        r.readAsText(file);
+      }
+    });
+
     H.get('btnReset').addEventListener('click', function() {
       if (rodando) return;
+      if (!confirm('Apagar todas as configurações e voltar ao padrão?')) return;
       try { localStorage.removeItem('SVG_ZOOM_STATE'); } catch(e) {}
       keyframes = [
         new KF({ tempo: 0, zoom: 1.0, blur: 7, rotationX: -25, rotationY: 15 }),
@@ -471,7 +532,7 @@
             function finalizar(msg, blob, nome) {
               stream.getTracks().forEach(function(t) { t.stop(); });
               mediaRecorder = null; gravando = false;
-              g('recordLabel').textContent = '\u25CF Gravar';
+              g('recordLabel').textContent = '\u25CF';
               if (blob) baixarArquivo(blob, nome);
               statusText.textContent = msg;
             }
@@ -495,7 +556,7 @@
 
           mediaRecorder.start();
           gravando = true;
-          g('recordLabel').textContent = '\u25A0 Parar';
+          g('recordLabel').textContent = '\u25A0';
           statusText.textContent = 'Gravando...';
 
           try { document.documentElement.requestFullscreen(); } catch(e) {}
@@ -666,6 +727,7 @@
       </style>
 
       <input type="file" id="fileInput" accept="image/*" style="display:none" />
+      <input type="file" id="projInput" accept=".json" style="display:none" />
 
       <div class="row">
         <label class="chk"><input type="checkbox" id="chkZoom" checked="checked" />Zoom</label>
