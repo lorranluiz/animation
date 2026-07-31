@@ -3,19 +3,28 @@
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
     svg { display: block; }
+    #camadaZoom { clip-path: url(#viewBoxClip); }
   </style>
   <defs>
+    <clipPath id="viewBoxClip">
+      <rect x="0" y="0" width="800" height="500" />
+    </clipPath>
     <filter id="cameraBlur">
       <feGaussianBlur id="blurElem" stdDeviation="7" />
     </filter>
   </defs>
 
-  <rect width="800" height="500" fill="#000" />
+  <rect x="-2000" y="-2000" width="5000" height="5000" fill="#000" />
 
   <g id="camadaZoom" filter="url(#cameraBlur)">
     <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" />
   </g>
 
+  <!-- Barras de letterbox (máscara de resolução + frame externo) -->
+  <rect id="lbTop" x="-2000" y="-2000" width="5000" height="2000" fill="#000" opacity="0" />
+  <rect id="lbBot" x="-2000" y="500" width="5000" height="2000" fill="#000" opacity="0" />
+  <rect id="lbLeft" x="-2000" y="0" width="2000" height="500" fill="#000" opacity="0" />
+  <rect id="lbRight" x="800" y="0" width="2000" height="500" fill="#000" opacity="0" />
 
   <g id="toolbars">
 
@@ -84,14 +93,33 @@
     var kfIdx = 0;
     var rodando = false, modoExibicao = false;
     var zoomEnabled = true, blurEnabled = true, rotEnabled = true, translEnabled = true;
+    var resolucao = 'full';
     var timeline = new SVGAnim.Timeline({
       duracao: 10, keyframes: keyframes, durLabel: durLabel, progressBar: progressBar
     });
     var inicioTimestamp = null;
     var pausadoMs = 0;
 
+    function aplicarLetterbox(opac) {
+      if (opac === undefined) opac = rodando ? 1 : 0.4;
+
+      g('lbTop').setAttribute('height', '2000'); g('lbTop').setAttribute('opacity', opac);
+      g('lbBot').setAttribute('y', '500'); g('lbBot').setAttribute('height', '2000'); g('lbBot').setAttribute('opacity', opac);
+      g('lbLeft').setAttribute('width', '2000'); g('lbLeft').setAttribute('opacity', opac);
+      g('lbRight').setAttribute('x', '800'); g('lbRight').setAttribute('width', '2000'); g('lbRight').setAttribute('opacity', opac);
+
+      if (resolucao === 'youtube') {
+        g('lbTop').setAttribute('height', '2025');
+        g('lbBot').setAttribute('y', '475');
+      } else if (resolucao === 'instagram') {
+        g('lbLeft').setAttribute('width', '2260');
+        g('lbRight').setAttribute('x', '540');
+      }
+    }
+
     function pausar() {
       rodando = false;
+      aplicarLetterbox();
       if (inicioTimestamp !== null) { pausadoMs += performance.now() - inicioTimestamp; inicioTimestamp = null; }
       g('playLabel').textContent = '\u25B6';
       statusBg.setAttribute('fill', 'rgba(0,0,0,0.55)');
@@ -344,6 +372,7 @@
         rodando = false;
         selecionarKF(keyframes.length - 1);
         if (modoExibicao) { H.get('toolbars').setAttribute('display', 'inline'); H.get('modoExibicao').setAttribute('display', 'inline'); }
+        aplicarLetterbox();
         if (gravando) { try { mediaRecorder.stop(); gravando = false; } catch(e) {} }
         g('playLabel').textContent = '\u25B6';
         statusBg.setAttribute('fill', 'rgba(0,0,0,0.55)');
@@ -362,6 +391,7 @@
         progressBar.setAttribute('width', '0');
       }
       if (modoExibicao) { H.get('toolbars').setAttribute('display', 'none'); H.get('modoExibicao').setAttribute('display', 'none'); }
+      aplicarLetterbox(1);
       inicioTimestamp = null; rodando = true;
       g('playLabel').textContent = '\u23F8';
       statusBg.setAttribute('fill', 'rgba(76,175,80,0.6)');
@@ -540,7 +570,7 @@
 
     function salvarEstado() {
       try {
-        var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, duracao: timeline.duracao,
+        var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, resolucao: resolucao, duracao: timeline.duracao,
           zoomEnabled: zoomEnabled, blurEnabled: blurEnabled, rotEnabled: rotEnabled, translEnabled: translEnabled, kfs: [] };
         for (var i = 0; i < keyframes.length; i++) {
           var k = keyframes[i];
@@ -558,6 +588,7 @@
         if (st.imagem) imagem.setAttribute('href', st.imagem);
         if (st.modoExibicao !== undefined) { modoExibicao = st.modoExibicao; g('modoExibCheck').textContent = modoExibicao ? '\u2713' : ''; }
         if (st.duracao !== undefined) { timeline.duracao = st.duracao; g('duracaoSlide').value = timeline.duracao; }
+        if (st.resolucao !== undefined) { resolucao = st.resolucao; g('selResolucao').value = resolucao; }
         if (st.zoomEnabled !== undefined) zoomEnabled = st.zoomEnabled;
         if (st.blurEnabled !== undefined) blurEnabled = st.blurEnabled;
         if (st.rotEnabled !== undefined) rotEnabled = st.rotEnabled;
@@ -583,6 +614,11 @@
       }
       g('btnAddKF').addEventListener('click', addKeyframe);
       g('btnDelKF').addEventListener('click', removeKeyframe);
+      g('selResolucao').addEventListener('change', function() {
+        resolucao = this.value;
+        aplicarLetterbox();
+        salvarEstado();
+      });
     }
 
     var panelReady = false;
@@ -596,6 +632,7 @@
       reconstruirTodosKeyframesDOM();
       kfIdx = 0; carregarSlidersDoKeyframe(keyframes[0]);
       atualizarSelecaoKeyframes(); aplicarValoresAtuais();
+      aplicarLetterbox();
 
       H.get('modoExibicao').addEventListener('click', function() {
         modoExibicao = !modoExibicao;
@@ -666,6 +703,13 @@
         <span class="lbl">Duração</span>
         <input type="range" id="duracaoSlide" min="1" max="30" value="10" step="1" />
         <span class="val" id="lblDuracao">10s</span>
+        <span class="lbl" style="min-width:14px;font-size:10px;color:#aaa;">Res</span>
+        <select id="selResolucao" style="background:#444;color:#eee;border:1px solid #666;border-radius:2px;font-size:11px;padding:1px 2px;">
+          <option value="full">Full</option>
+          <option value="youtube">YouTube 16:9</option>
+          <option value="instagram">Instagram 9:16</option>
+        </select>
+        <span style="min-width:4px"></span>
         <button id="btnAddKF">+ KF</button>
         <button id="btnDelKF">− KF</button>
       </div>
