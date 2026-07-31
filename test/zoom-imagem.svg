@@ -4,7 +4,6 @@
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
     svg { display: block; }
   </style>
-
   <defs>
     <filter id="cameraBlur">
       <feGaussianBlur id="blurElem" stdDeviation="7" />
@@ -17,850 +16,574 @@
     <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" />
   </g>
 
-  <!-- Overlay transparente para capturar eventos de mouse na imagem -->
-  <rect id="overlayMouse" x="0" y="0" width="800" height="500" fill="none" pointer-events="visible" />
-
-  <g id="toolbars">
-
-  <!-- Barra de status no topo -->
-  <rect id="statusBg" x="0" y="0" width="800" height="28" fill="rgba(0,0,0,0.55)" />
-  <text id="statusText" x="400" y="19" font-family="Arial, sans-serif" font-size="13" fill="white" text-anchor="middle">
-    Pressione ▶ PLAY para iniciar a animação
-  </text>
-
-  <!-- Botão Play -->
-  <g id="btnPlay" cursor="pointer">
-    <rect x="6" y="3" width="40" height="22" rx="4" fill="#4CAF50" stroke="#388E3C" stroke-width="1.5" />
-    <text id="playLabel" x="26" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#9654;</text>
-  </g>
-
-  <!-- Botão Upload -->
-  <g id="btnUpload" cursor="pointer">
-    <rect x="52" y="3" width="40" height="22" rx="4" fill="#2196F3" stroke="#1976D2" stroke-width="1.5" />
-    <text x="72" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#128193;</text>
-  </g>
-
-  <!-- ============================================================ -->
-  <!-- TIMELINE                                                      -->
-  <!-- ============================================================ -->
-
-  <!-- Fundo da timeline -->
-  <rect x="30" y="323" width="740" height="6" rx="3" fill="rgba(255,255,255,0.25)" />
-
-  <!-- Barra de progresso (preenche durante animação) -->
-  <rect id="progressBar" x="40" y="323" width="0" height="6" rx="3" fill="#4CAF50" />
-
-  <!-- Keyframe 1 (Início) -->
-  <g id="kf1" cursor="pointer">
-    <circle id="kf1Outer" cx="40" cy="326" r="8" fill="#333" stroke="#4CAF50" stroke-width="2.5" />
-    <circle id="kf1Inner" cx="40" cy="326" r="3" fill="#4CAF50" />
-  </g>
-  <text x="40" y="344" font-family="Arial, sans-serif" font-size="10" fill="#ccc" text-anchor="middle">INÍCIO</text>
-  <text x="40" y="355" font-family="Arial, sans-serif" font-size="9" fill="#999" text-anchor="middle">0.0s</text>
-
-  <!-- Keyframe 2 (Fim) -->
-  <g id="kf2" cursor="grab">
-    <circle id="kf2Outer" cx="760" cy="326" r="8" fill="#333" stroke="#aaa" stroke-width="2" />
-    <circle id="kf2Inner" cx="760" cy="326" r="3" fill="#4CAF50" display="none" />
-  </g>
-  <text id="fimLabel" x="760" y="344" font-family="Arial, sans-serif" font-size="10" fill="#ccc" text-anchor="middle">FIM</text>
-  <text id="tempoKF2Label" x="760" y="355" font-family="Arial, sans-serif" font-size="9" fill="#999" text-anchor="middle">5.0s</text>
-
-  <!-- Linha vertical no KF2 (guia) -->
-  <line id="kf2Tick" x1="760" y1="319" x2="760" y2="348" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
-
-  <!-- Duração da timeline no centro -->
-  <text x="400" y="355" font-family="Arial, sans-serif" font-size="9" fill="#999" text-anchor="middle">
-    Duração total: <tspan id="duracaoLabel">5.0</tspan>s
-  </text>
-
-  <!-- Info do keyframe selecionado -->
-  <text id="kfInfo" x="400" y="375" font-family="Courier New, monospace" font-size="11" fill="#FFD700" text-anchor="middle">
-    KF1 (Inicial, 0.0s): Zoom 1.0 | Blur 7 | Pitch -25° Yaw 15° Roll 0°
-  </text>
-
-  <!-- ============================================================ -->
-  <!-- CONTROLES (foreignObject)                                     -->
-  <!-- ============================================================ -->
-
-  <script type="text/javascript" href="../library/svg-animation-lib.js" />
-  <script type="text/javascript"><![CDATA[
-    var H = SVGAnim.Helpers;
-    var IMAGEM = '../mapa brasil 1.jpg';
-    var CENTRO_X = 400;
-    var CENTRO_Y = 250;
-
-    var camada = H.get('camadaZoom');
-    var imagem = H.get('imgMapa');
-    var statusText = H.get('statusText');
-    var statusBg = H.get('statusBg');
-    var btnPlay = H.get('btnPlay');
-    var btnUpload = H.get('btnUpload');
-    var progressBar = H.get('progressBar');
-    var kfInfo = H.get('kfInfo');
-
-    imagem.setAttribute('href', IMAGEM);
-
-    btnUpload.addEventListener('click', function() {
-      var fileInput = document.getElementById('fileInput');
-      if (fileInput) fileInput.click();
-    });
-
-    document.addEventListener('change', function(event) {
-      if (event.target && event.target.id === 'fileInput') {
-        var file = event.target.files[0];
-        if (!file) return;
-        var reader = new FileReader();
-        reader.onload = function(e) {
-          imagem.setAttribute('href', e.target.result);
-          statusText.textContent = 'Imagem carregada: ' + file.name + ' — pressione ▶ PLAY';
-          salvarEstado();
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-
-    function salvarEstado() {
-      try {
-        var estado = {
-          imagem: imagem.getAttribute('href')
-        };
-        var ids = [
-          'zoomIniSlide','zoomFimSlide','zoomVelSlide',
-          'blurIniSlide','blurFimSlide','blurVelSlide',
-          'rotXIniSlide','rotYIniSlide','rotZIniSlide',
-          'rotXFimSlide','rotYFimSlide','rotZFimSlide','rotVelSlide',
-          'translTxIniSlide','translTyIniSlide',
-          'translTxFimSlide','translTyFimSlide','translVelSlide'
-        ];
-        for (var i = 0; i < ids.length; i++) {
-          var el = document.getElementById(ids[i]);
-          if (el) estado[ids[i]] = el.value;
-        }
-        var checks = ['chkZoom','chkBlur','chkRot','chkTransl'];
-        for (var j = 0; j < checks.length; j++) {
-          var ch = document.getElementById(checks[j]);
-          if (ch) estado[checks[j]] = ch.checked;
-        }
-        estado['modoExibicao'] = modoExibicao;
-        estado['duracaoSlide'] = g('duracaoSlide') ? g('duracaoSlide').value : 5;
-        estado['tempoKF2Slide'] = g('tempoKF2Slide') ? g('tempoKF2Slide').value : 5;
-        localStorage.setItem('SVG_ZOOM_STATE', JSON.stringify(estado));
-      } catch(e) {}
-    }
-
-    function carregarEstado() {
-      try {
-        var json = localStorage.getItem('SVG_ZOOM_STATE');
-        if (!json) return;
-        var estado = JSON.parse(json);
-
-        if (estado.imagem) {
-          imagem.setAttribute('href', estado.imagem);
-        }
-
-        var ids = [
-          'zoomIniSlide','zoomFimSlide','zoomVelSlide',
-          'blurIniSlide','blurFimSlide','blurVelSlide',
-          'rotXIniSlide','rotYIniSlide','rotZIniSlide',
-          'rotXFimSlide','rotYFimSlide','rotZFimSlide','rotVelSlide',
-          'translTxIniSlide','translTyIniSlide',
-          'translTxFimSlide','translTyFimSlide','translVelSlide'
-        ];
-        for (var i = 0; i < ids.length; i++) {
-          var el = document.getElementById(ids[i]);
-          if (el && estado[ids[i]] !== undefined) el.value = estado[ids[i]];
-        }
-
-        var checks = ['chkZoom','chkBlur','chkRot','chkTransl'];
-        for (var j = 0; j < checks.length; j++) {
-          var ch = document.getElementById(checks[j]);
-          if (ch && estado[checks[j]] !== undefined) ch.checked = estado[checks[j]];
-        }
-
-        if (estado['modoExibicao'] !== undefined) {
-          modoExibicao = estado['modoExibicao'];
-          var checkEl = document.getElementById('modoExibCheck');
-          if (checkEl) checkEl.textContent = modoExibicao ? '\u2713' : '';
-        }
-
-        if (estado['duracaoSlide'] !== undefined) {
-          g('duracaoSlide').value = estado['duracaoSlide'];
-          g('tempoKF2Slide').max = estado['duracaoSlide'];
-        }
-        if (estado['tempoKF2Slide'] !== undefined) {
-          g('tempoKF2Slide').value = estado['tempoKF2Slide'];
-        }
-      } catch(e) {}
-    }
-
-    var T_BAR_X = 40;
-    var T_BAR_W = 720;
-
-    var camera = new SVGAnim.Camera({
-      zoom: 1.0,
-      zoomSmoothness: 0.02,
-      zoomCenterX: CENTRO_X,
-      zoomCenterY: CENTRO_Y,
-      blur: 7,
-      blurSmoothness: 0.02,
-      blurFilterId: 'blurElem',
-      rotationX: -25,
-      rotationY: 15,
-      rotationZ: 0,
-      rotationSmoothness: 0.02,
-      perspective: 800
-    });
-
-    var rodando = false;
-    var kfSelecionado = 1;
-    var modoExibicao = false;
-
-    var zoomEnabled = true;
-    var blurEnabled = true;
-    var rotEnabled = true;
-    var translEnabled = true;
-
-    var targetZoom = 1.5;
-    var targetBlur = 0;
-    var targetRotX = 0;
-    var targetRotY = 0;
-    var targetRotZ = 0;
-    var targetTx = 0;
-    var targetTy = 0;
-
-    var zoomIni = 1.0;
-    var blurIni = 7;
-    var rotXIni = -25;
-    var rotYIni = 15;
-    var rotZIni = 0;
-    var txIni = 0;
-    var tyIni = 0;
-
-    var duracaoTotal = 5;
-    var tempoKF2 = 5;
-
-    function lerSliders() {
-      var el;
-      targetZoom = (el = g('zoomFimSlide')) ? (el.value / 10) : 1.5;
-      zoomIni = (el = g('zoomIniSlide')) ? (el.value / 10) : 1.0;
-
-      targetBlur = (el = g('blurFimSlide')) ? parseInt(el.value) : 0;
-      blurIni = (el = g('blurIniSlide')) ? parseInt(el.value) : 7;
-
-      targetRotX = (el = g('rotXFimSlide')) ? parseInt(el.value) : 0;
-      targetRotY = (el = g('rotYFimSlide')) ? parseInt(el.value) : 0;
-      targetRotZ = (el = g('rotZFimSlide')) ? parseInt(el.value) : 0;
-      rotXIni = (el = g('rotXIniSlide')) ? parseInt(el.value) : -25;
-      rotYIni = (el = g('rotYIniSlide')) ? parseInt(el.value) : 15;
-      rotZIni = (el = g('rotZIniSlide')) ? parseInt(el.value) : 0;
-
-      targetTx = (el = g('translTxFimSlide')) ? parseInt(el.value) : 0;
-      targetTy = (el = g('translTyFimSlide')) ? parseInt(el.value) : 0;
-      txIni = (el = g('translTxIniSlide')) ? parseInt(el.value) : 0;
-      tyIni = (el = g('translTyIniSlide')) ? parseInt(el.value) : 0;
-
-      camera.zoomSmoothness = (el = g('zoomVelSlide')) ? (el.value / 1000) : 0.02;
-      camera.blurSmoothness = (el = g('blurVelSlide')) ? (el.value / 1000) : 0.02;
-      camera.rotationSmoothness = (el = g('rotVelSlide')) ? (el.value / 1000) : 0.02;
-      camera.translateSmoothness = (el = g('translVelSlide')) ? (el.value / 1000) : 0.02;
-
-      duracaoTotal = (el = g('duracaoSlide')) ? parseInt(el.value) : 5;
-      tempoKF2 = (el = g('tempoKF2Slide')) ? parseFloat(el.value) : 5;
-      if (tempoKF2 > duracaoTotal) tempoKF2 = duracaoTotal;
-      if (tempoKF2 < 0.5) tempoKF2 = 0.5;
-
-      zoomEnabled = g('chkZoom') ? g('chkZoom').checked : true;
-      blurEnabled = g('chkBlur') ? g('chkBlur').checked : true;
-      rotEnabled = g('chkRot') ? g('chkRot').checked : true;
-      translEnabled = g('chkTransl') ? g('chkTransl').checked : true;
-
-      aplicarValoresAtuais();
-    }
-
-    function g(id) { return document.getElementById(id); }
-
-    function atualizarLabelsSliders() {
-      var zis = g('zoomIniSlide'); if (zis) g('lblZoomIni').textContent = (zis.value/10).toFixed(1);
-      var zfs = g('zoomFimSlide'); if (zfs) g('lblZoomFim').textContent = (zfs.value/10).toFixed(1);
-      var zvs = g('zoomVelSlide'); if (zvs) g('lblZoomVel').textContent = (zvs.value/1000).toFixed(3);
-      var bis = g('blurIniSlide'); if (bis) g('lblBlurIni').textContent = bis.value;
-      var bfs = g('blurFimSlide'); if (bfs) g('lblBlurFim').textContent = bfs.value;
-      var bvs = g('blurVelSlide'); if (bvs) g('lblBlurVel').textContent = (bvs.value/1000).toFixed(3);
-      var rxi = g('rotXIniSlide'); if (rxi) g('lblRotXIni').textContent = rxi.value;
-      var ryi = g('rotYIniSlide'); if (ryi) g('lblRotYIni').textContent = ryi.value;
-      var rzi = g('rotZIniSlide'); if (rzi) g('lblRotZIni').textContent = rzi.value;
-      var rxf = g('rotXFimSlide'); if (rxf) g('lblRotXFim').textContent = rxf.value;
-      var ryf = g('rotYFimSlide'); if (ryf) g('lblRotYFim').textContent = ryf.value;
-      var rzf = g('rotZFimSlide'); if (rzf) g('lblRotZFim').textContent = rzf.value;
-      var txi = g('translTxIniSlide'); if (txi) g('lblTranslTxIni').textContent = txi.value;
-      var tyi = g('translTyIniSlide'); if (tyi) g('lblTranslTyIni').textContent = tyi.value;
-      var txf = g('translTxFimSlide'); if (txf) g('lblTranslTxFim').textContent = txf.value;
-      var tyf = g('translTyFimSlide'); if (tyf) g('lblTranslTyFim').textContent = tyf.value;
-      var tvl = g('translVelSlide'); if (tvl) g('lblTranslVel').textContent = (tvl.value/1000).toFixed(3);
-      var dur = g('duracaoSlide'); if (dur) { g('lblDuracao').textContent = dur.value + 's'; g('tempoKF2Slide').max = dur.value; if (parseFloat(g('tempoKF2Slide').value) > parseInt(dur.value)) g('tempoKF2Slide').value = dur.value; }
-      var t2 = g('tempoKF2Slide'); if (t2) g('lblTempoKF2').textContent = parseFloat(t2.value).toFixed(1) + 's';
-      g('duracaoLabel').textContent = duracaoTotal.toFixed(1);
-      g('tempoKF2Label').textContent = tempoKF2.toFixed(1) + 's';
-      posicionarKF2();
-    }
-
-    function atualizarPosicaoTimeline() {
-      if (duracaoTotal <= 0) return;
-      var xFim = 40 + 720 * (tempoKF2 / duracaoTotal);
-      xFim = Math.max(40, Math.min(760, xFim));
-      g('kf2Outer').setAttribute('cx', xFim);
-      g('kf2Inner').setAttribute('cx', xFim);
-      g('fimLabel').setAttribute('x', xFim);
-      g('tempoKF2Label').setAttribute('x', xFim);
-    }
-
-    function atualizarKFInfo() {
-      if (kfSelecionado === 1) {
-        kfInfo.textContent =
-        'KF1 (Inicial, 0.0s): Zoom ' + zoomIni.toFixed(1) +
-        ' | Blur ' + blurIni +
-        ' | Pitch ' + rotXIni + '°  Yaw ' + rotYIni +
-        '°  Roll ' + rotZIni + '°' +
-        ' | Tx ' + txIni + '  Ty ' + tyIni;
-      } else {
-        kfInfo.textContent =
-        'KF2 (Final, ' + tempoKF2.toFixed(1) + 's): Zoom ' + targetZoom.toFixed(1) +
-        ' | Blur ' + targetBlur +
-        ' | Pitch ' + targetRotX + '°  Yaw ' + targetRotY +
-        '°  Roll ' + targetRotZ + '°' +
-        ' | Tx ' + targetTx + '  Ty ' + targetTy;
-      }
-    }
-
-    function aplicarValoresAtuais() {
-      if (rodando) return;
-
-      if (kfSelecionado === 1) {
-        camera.zoom = zoomIni;
-        camera._targetZoom = zoomIni;
-        camera.blur = blurIni;
-        camera._targetBlur = blurIni;
-        camera.rotationX = rotXIni;
-        camera._targetRotationX = rotXIni;
-        camera.rotationY = rotYIni;
-        camera._targetRotationY = rotYIni;
-        camera.rotationZ = rotZIni;
-        camera._targetRotationZ = rotZIni;
-        camera.tx = txIni;
-        camera._targetTx = txIni;
-        camera.ty = tyIni;
-        camera._targetTy = tyIni;
-      } else {
-        camera.zoom = targetZoom;
-        camera._targetZoom = targetZoom;
-        camera.blur = targetBlur;
-        camera._targetBlur = targetBlur;
-        camera.rotationX = targetRotX;
-        camera._targetRotationX = targetRotX;
-        camera.rotationY = targetRotY;
-        camera._targetRotationY = targetRotY;
-        camera.rotationZ = targetRotZ;
-        camera._targetRotationZ = targetRotZ;
-        camera.tx = targetTx;
-        camera._targetTx = targetTx;
-        camera.ty = targetTy;
-        camera._targetTy = targetTy;
-      }
-
-      if (camera.blurFilterId) {
-        var filterEl = document.getElementById(camera.blurFilterId);
-        if (filterEl) {
-          filterEl.setAttribute('stdDeviation', camera.blur);
-        }
-      }
-
-      camada.style.transform = camera.getCameraTransform();
-      camada.style.transformOrigin = '0 0';
-      atualizarStatus();
-    }
-
-    function atualizarStatus() {
-      statusText.textContent =
-        'Zoom: ' + camera.zoom.toFixed(2) + 'x  |  ' +
-        'Blur: ' + camera.blur.toFixed(1) + 'px  |  ' +
-        'Pitch: ' + camera.rotationX.toFixed(1) + '°  ' +
-        'Yaw: ' + camera.rotationY.toFixed(1) + '°  ' +
-        'Roll: ' + camera.rotationZ.toFixed(1) + '°  ' +
-        'Tx: ' + camera.tx.toFixed(0) + '  Ty: ' + camera.ty.toFixed(0);
-    }
-
-    function atualizarProgressBar(prog) {
-      progressBar.setAttribute('width', prog * T_BAR_W);
-    }
-
-    function posicionarKF2() {
-      var tx = T_BAR_X + (tempoKF2 / Math.max(duracaoTotal, 1)) * T_BAR_W;
-      tx = Math.max(T_BAR_X, Math.min(T_BAR_X + T_BAR_W, tx));
-      setKF2PositionPX(tx);
-    }
-
-    function setKF2PositionPX(px) {
-      px = Math.max(T_BAR_X, Math.min(T_BAR_X + T_BAR_W, px));
-      g('kf2Outer').setAttribute('cx', px);
-      g('kf2Inner').setAttribute('cx', px);
-      g('fimLabel').setAttribute('x', px);
-      g('tempoKF2Label').setAttribute('x', px);
-      g('kf2Tick').setAttribute('x1', px);
-      g('kf2Tick').setAttribute('x2', px);
-    }
-
-    var inicioTimestamp = null;
-
-    function lerp(a, b, t) {
-      return a + (b - a) * t;
-    }
-
-    function animar(timestamp) {
-      if (inicioTimestamp === null) inicioTimestamp = timestamp;
-      var decorrido = Math.min((timestamp - inicioTimestamp) / 1000, tempoKF2);
-      var fator = tempoKF2 > 0 ? decorrido / tempoKF2 : 1.0;
-
-      if (zoomEnabled) camera.zoom = lerp(zoomIni, targetZoom, fator);
-      if (blurEnabled) camera.blur = lerp(blurIni, targetBlur, fator);
-      if (rotEnabled) {
-        camera.rotationX = lerp(rotXIni, targetRotX, fator);
-        camera.rotationY = lerp(rotYIni, targetRotY, fator);
-        camera.rotationZ = lerp(rotZIni, targetRotZ, fator);
-      }
-      if (translEnabled) {
-        camera.tx = lerp(txIni, targetTx, fator);
-        camera.ty = lerp(tyIni, targetTy, fator);
-      }
-
-      if (camera.blurFilterId) {
-        var filterEl = document.getElementById(camera.blurFilterId);
-        if (filterEl) filterEl.setAttribute('stdDeviation', camera.blur);
-      }
-
-      camada.style.transform = camera.getCameraTransform();
-      camada.style.transformOrigin = '0 0';
-      atualizarStatus();
-
-      var kf2X = parseFloat(g('kf2Outer').getAttribute('cx'));
-      progressBar.setAttribute('width', Math.max(0, (kf2X - T_BAR_X) * fator));
-
-      if (decorrido < tempoKF2) {
-        requestAnimationFrame(animar);
-      } else {
-        var kf2XEnd = parseFloat(g('kf2Outer').getAttribute('cx'));
-        progressBar.setAttribute('width', Math.max(0, kf2XEnd - T_BAR_X));
-        rodando = false;
-        setKFSelection(2);
-        if (modoExibicao) {
-          H.get('toolbars').setAttribute('display', 'inline');
-          H.get('modoExibicao').setAttribute('display', 'inline');
-        }
-        g('playLabel').textContent = '\u25B6';
-        statusBg.setAttribute('fill', 'rgba(0,0,0,0.55)');
-        statusText.textContent = 'Animação concluída — ajuste os parâmetros e pressione ▶ PLAY';
-      }
-    }
-
-    function iniciar() {
-      if (rodando) return;
-      lerSliders();
-
-      if (zoomEnabled) {
-        camera.zoom = zoomIni;
-      } else {
-        camera._targetZoom = camera.zoom;
-      }
-
-      if (blurEnabled) {
-        camera.blur = blurIni;
-      } else {
-        camera._targetBlur = camera.blur;
-      }
-
-      if (rotEnabled) {
-        camera.rotationX = rotXIni;
-        camera.rotationY = rotYIni;
-        camera.rotationZ = rotZIni;
-      } else {
-        camera._targetRotationX = camera.rotationX;
-        camera._targetRotationY = camera.rotationY;
-        camera._targetRotationZ = camera.rotationZ;
-      }
-
-      if (translEnabled) {
-        camera.tx = txIni;
-        camera.ty = tyIni;
-      } else {
-        camera._targetTx = camera.tx;
-        camera._targetTy = camera.ty;
-      }
-
-      progressBar.setAttribute('width', '0');
-      if (modoExibicao) {
-        H.get('toolbars').setAttribute('display', 'none');
-        H.get('modoExibicao').setAttribute('display', 'none');
-      }
-      inicioTimestamp = null;
-      rodando = true;
-      g('playLabel').textContent = '\u25A0';
-      statusBg.setAttribute('fill', 'rgba(76,175,80,0.6)');
-      requestAnimationFrame(animar);
-    }
-
-    function setKFSelection(kf) {
-      kfSelecionado = kf;
-      var k1o = g('kf1Outer');
-      var k1i = g('kf1Inner');
-      var k2o = g('kf2Outer');
-      var k2i = g('kf2Inner');
-
-      if (kf === 1) {
-        k1o.setAttribute('stroke', '#4CAF50'); k1o.setAttribute('stroke-width', '2.5');
-        k1i.setAttribute('display', 'inline');
-        k2o.setAttribute('stroke', '#aaa'); k2o.setAttribute('stroke-width', '2');
-        k2i.setAttribute('display', 'none');
-      } else {
-        k2o.setAttribute('stroke', '#4CAF50'); k2o.setAttribute('stroke-width', '2.5');
-        k2i.setAttribute('display', 'inline');
-        k1o.setAttribute('stroke', '#aaa'); k1o.setAttribute('stroke-width', '2');
-        k1i.setAttribute('display', 'none');
-      }
-
-      var kf1Fields = document.querySelectorAll('.kf1-field');
-      var kf2Fields = document.querySelectorAll('.kf2-field');
-      for (var i = 0; i < kf1Fields.length; i++) {
-        kf1Fields[i].style.display = (kf === 1) ? 'flex' : 'none';
-      }
-      for (var j = 0; j < kf2Fields.length; j++) {
-        kf2Fields[j].style.display = (kf === 2) ? 'flex' : 'none';
-      }
-
-      atualizarKFInfo();
-      aplicarValoresAtuais();
-    }
-
-    btnPlay.addEventListener('click', iniciar);
-
-    H.get('kf1').addEventListener('click', function() { setKFSelection(1); });
-    H.get('kf2').addEventListener('click', function() { setKFSelection(2); });
-
-    document.addEventListener('keydown', function(event) {
-      var active = document.activeElement;
-      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
-      if (event.code === 'Home') {
-        event.preventDefault();
-        if (!rodando) setKFSelection(1);
-      }
-      if (event.code === 'End') {
-        event.preventDefault();
-        if (!rodando) setKFSelection(2);
-      }
-      if (event.code === 'Space') {
-        event.preventDefault();
-        iniciar();
-      }
-    });
-
-    var arrastando = false;
-    var mouseIniX = 0;
-    var mouseIniY = 0;
-    var txAnchor = 0;
-    var tyAnchor = 0;
-    var draggingKF2 = false;
-    var kf2AnchorTime = 0;
-
-    H.get('overlayMouse').addEventListener('mousedown', function(e) {
-      if (rodando) return;
-
-      arrastando = true;
-      mouseIniX = e.clientX;
-      mouseIniY = e.clientY;
-      lerSliders();
-      txAnchor = (kfSelecionado === 1) ? txIni : targetTx;
-      tyAnchor = (kfSelecionado === 1) ? tyIni : targetTy;
-    });
-
-    H.get('kf2').addEventListener('mousedown', function(e) {
-      if (rodando) return;
-      e.stopPropagation();
-      draggingKF2 = true;
-      kf2AnchorTime = tempoKF2;
-      mouseIniX = e.clientX;
-    });
-
-    window.addEventListener('mousemove', function(e) {
-      if (draggingKF2 && !rodando) {
-        var rect = H.get('svgRaiz').getBoundingClientRect();
-        var scaleX = 800 / rect.width;
-        var dx = (e.clientX - mouseIniX) * scaleX;
-        var rawTempo = kf2AnchorTime + (dx / T_BAR_W) * duracaoTotal;
-        rawTempo = Math.max(0.5, Math.min(duracaoTotal, rawTempo));
-        var posX = T_BAR_X + (rawTempo / duracaoTotal) * T_BAR_W;
-        setKF2PositionPX(posX);
-
-        var rounded = Math.round(rawTempo * 10) / 10;
-        g('tempoKF2Slide').value = rounded;
-        g('lblTempoKF2').textContent = rounded.toFixed(1) + 's';
-        g('tempoKF2Label').textContent = rounded.toFixed(1) + 's';
-        return;
-      }
-      if (!arrastando || rodando) return;
-      var dx = e.clientX - mouseIniX;
-      var dy = e.clientY - mouseIniY;
-      var novoTx = Math.round(Math.max(-300, Math.min(300, txAnchor + dx)));
-      var novoTy = Math.round(Math.max(-300, Math.min(300, tyAnchor + dy)));
-      var txId = (kfSelecionado === 1) ? 'translTxIniSlide' : 'translTxFimSlide';
-      var tyId = (kfSelecionado === 1) ? 'translTyIniSlide' : 'translTyFimSlide';
-      g(txId).value = novoTx;
-      g(tyId).value = novoTy;
-      lerSliders();
-      atualizarLabelsSliders();
-      atualizarKFInfo();
-      aplicarValoresAtuais();
-      salvarEstado();
-    });
-
-    window.addEventListener('mouseup', function(e) {
-      arrastando = false;
-      if (draggingKF2) {
-        draggingKF2 = false;
-        var finalTempo = Math.max(0.5, Math.min(duracaoTotal, Math.round(tempoKF2 * 10) / 10));
-        g('tempoKF2Slide').value = parseFloat(g('tempoKF2Slide').value);
-        lerSliders();
-        atualizarLabelsSliders();
-        atualizarKFInfo();
-        salvarEstado();
-      }
-    });
-
-    H.get('overlayMouse').addEventListener('wheel', function(e) {
-      if (rodando || !e.ctrlKey) return;
-      e.preventDefault();
-      lerSliders();
-      var zoomId = (kfSelecionado === 1) ? 'zoomIniSlide' : 'zoomFimSlide';
-      var zoomAtual = parseInt(g(zoomId).value);
-      var delta = e.deltaY < 0 ? 1 : -1;
-      var novo = Math.max(10, Math.min(30, zoomAtual + delta));
-      g(zoomId).value = novo;
-      lerSliders();
-      atualizarLabelsSliders();
-      atualizarKFInfo();
-      aplicarValoresAtuais();
-      salvarEstado();
-    });
-
-    var arrastandoKF2 = false;
-    H.get('kf2').addEventListener('mousedown', function(e) {
-      if (rodando) return;
-      e.stopPropagation();
-      arrastandoKF2 = true;
-      H.get('kf2').setAttribute('cursor', 'grabbing');
-    });
-
-    window.addEventListener('mousemove', function(e) {
-      if (!arrastandoKF2 || rodando) return;
-      var rect = H.get('svgRaiz').getBoundingClientRect();
-      var svgX = (e.clientX - rect.left) / rect.width * 800;
-      var novoX = Math.max(40, Math.min(760, svgX));
-      var novoTempo = duracaoTotal > 0 ? ((novoX - 40) / 720) * duracaoTotal : 0;
-      novoTempo = Math.max(0.5, Math.min(duracaoTotal, Math.round(novoTempo * 2) / 2));
-      var el = g('tempoKF2Slide');
-      if (el) el.value = novoTempo;
-      lerSliders();
-      atualizarLabelsSliders();
-      atualizarKFInfo();
-      aplicarValoresAtuais();
-      salvarEstado();
-    });
-
-    window.addEventListener('mouseup', function(e) {
-      if (arrastandoKF2) {
-        arrastandoKF2 = false;
-        H.get('kf2').setAttribute('cursor', 'grab');
-      }
-    });
-
-    function setupSliderListeners() {
-      var sliders = document.querySelectorAll('input[type=range], input[type=checkbox]');
-      for (var i = 0; i < sliders.length; i++) {
-        sliders[i].addEventListener('input', function() {
-          lerSliders();
-          atualizarLabelsSliders();
-          atualizarKFInfo();
-          aplicarValoresAtuais();
-          salvarEstado();
-        });
-      }
-    }
-
-    var panelReady = false;
-    function initQuandoPronto() {
-      if (panelReady) return;
-      if (!g('zoomIniSlide')) return;
-      panelReady = true;
-      carregarEstado();
-      setupSliderListeners();
-      lerSliders();
-      atualizarLabelsSliders();
-      atualizarKFInfo();
-      atualizarStatus();
-      posicionarKF2();
-
-      H.get('modoExibicao').addEventListener('click', function() {
-        modoExibicao = !modoExibicao;
-        var checkEl = H.get('modoExibCheck');
-        checkEl.textContent = modoExibicao ? '\u2713' : '';
-      });
-    }
-    setTimeout(function() { initQuandoPronto(); }, 200);
-    var pollTimer = setInterval(function() {
-      if (!panelReady) initQuandoPronto();
-      else clearInterval(pollTimer);
-    }, 100);
-
-    camada.style.transform = camera.getCameraTransform();
-    camada.style.transformOrigin = '0 0';
-    atualizarStatus();
-  ]]></script>
-
-  <foreignObject x="0" y="380" width="800" height="120">
-    <div xmlns="http://www.w3.org/1999/xhtml" id="painelControles" style="
-      font-family: Arial, sans-serif; font-size: 11px; color: #eee;
-      background: rgba(20,20,20,0.85); padding: 6px 8px;
-      box-sizing: border-box; width: 800px; user-select: none;
-      overflow: visible;
-    ">
-      <style>
-        #painelControles .row { display: flex; align-items: center; margin-bottom: 5px; gap: 4px; }
-        #painelControles .row:last-child { margin-bottom: 0; }
-        #painelControles label { white-space: nowrap; cursor: pointer; }
-        #painelControles label.chk { min-width: 50px; }
-        #painelControles span.lbl { min-width: 18px; text-align: center; font-size: 10px; color: #aaa; }
-        #painelControles span.lbl-kf { min-width: 22px; text-align: center; font-size: 10px; color: #4CAF50; font-weight: bold; }
-        #painelControles span.val { min-width: 28px; text-align: right; color: #FFD700; font-variant-numeric: tabular-nums; }
-        #painelControles input[type=range] { width: 68px; margin: 0 2px; accent-color: #4CAF50; }
-        #painelControles input[type=checkbox] { accent-color: #4CAF50; margin: 0; }
-        #painelControles .sep { width: 6px; }
-        #painelControles .kf-field { display: flex; align-items: center; gap: 4px; }
-      </style>
-
-      <input type="file" id="fileInput" accept="image/*" style="display:none" />
-
-      <!-- Linha Zoom -->
-      <div class="row">
-        <label class="chk"><input type="checkbox" id="chkZoom" checked="checked" /> Zoom</label>
-        <span class="kf-field kf1-field">
-          <span class="lbl-kf">Ini</span>
-          <input type="range" id="zoomIniSlide" min="10" max="30" value="10" step="1" />
-          <span class="val" id="lblZoomIni">1.0</span>
-        </span>
-        <span class="kf-field kf2-field" style="display:none">
-          <span class="lbl-kf">Fim</span>
-          <input type="range" id="zoomFimSlide" min="10" max="30" value="15" step="1" />
-          <span class="val" id="lblZoomFim">1.5</span>
-        </span>
-        <span class="sep"></span>
-        <span class="lbl">Vel</span>
-        <input type="range" id="zoomVelSlide" min="5" max="100" value="20" step="1" />
-        <span class="val" id="lblZoomVel">0.020</span>
-      </div>
-
-      <!-- Linha Blur -->
-      <div class="row">
-        <label class="chk"><input type="checkbox" id="chkBlur" checked="checked" /> Blur</label>
-        <span class="kf-field kf1-field">
-          <span class="lbl-kf">Ini</span>
-          <input type="range" id="blurIniSlide" min="0" max="15" value="7" step="1" />
-          <span class="val" id="lblBlurIni">7</span>
-        </span>
-        <span class="kf-field kf2-field" style="display:none">
-          <span class="lbl-kf">Fim</span>
-          <input type="range" id="blurFimSlide" min="0" max="15" value="0" step="1" />
-          <span class="val" id="lblBlurFim">0</span>
-        </span>
-        <span class="sep"></span>
-        <span class="lbl">Vel</span>
-        <input type="range" id="blurVelSlide" min="5" max="100" value="20" step="1" />
-        <span class="val" id="lblBlurVel">0.020</span>
-      </div>
-
-      <!-- Linha Rotação 3D -->
-      <div class="row">
-        <label class="chk"><input type="checkbox" id="chkRot" checked="checked" /> Rot3D</label>
-        <span class="kf-field kf1-field">
-          <span class="lbl">Pitch</span>
-          <input type="range" id="rotXIniSlide" min="-90" max="90" value="-25" step="1" />
-          <span class="val" id="lblRotXIni">-25</span>
-          <span class="lbl">Yaw</span>
-          <input type="range" id="rotYIniSlide" min="-90" max="90" value="15" step="1" />
-          <span class="val" id="lblRotYIni">15</span>
-          <span class="lbl">Roll</span>
-          <input type="range" id="rotZIniSlide" min="-90" max="90" value="0" step="1" />
-          <span class="val" id="lblRotZIni">0</span>
-        </span>
-        <span class="kf-field kf2-field" style="display:none">
-          <span class="lbl">Pitch</span>
-          <input type="range" id="rotXFimSlide" min="-90" max="90" value="0" step="1" />
-          <span class="val" id="lblRotXFim">0</span>
-          <span class="lbl">Yaw</span>
-          <input type="range" id="rotYFimSlide" min="-90" max="90" value="0" step="1" />
-          <span class="val" id="lblRotYFim">0</span>
-          <span class="lbl">Roll</span>
-          <input type="range" id="rotZFimSlide" min="-90" max="90" value="0" step="1" />
-          <span class="val" id="lblRotZFim">0</span>
-        </span>
-        <span class="sep"></span>
-        <span class="lbl">Vel</span>
-        <input type="range" id="rotVelSlide" min="5" max="100" value="20" step="1" />
-        <span class="val" id="lblRotVel">0.020</span>
-      </div>
-
-      <!-- Linha Translação -->
-      <div class="row">
-        <label class="chk"><input type="checkbox" id="chkTransl" checked="checked" /> Trans</label>
-        <span class="kf-field kf1-field">
-          <span class="lbl">Tx</span>
-          <input type="range" id="translTxIniSlide" min="-300" max="300" value="0" step="1" />
-          <span class="val" id="lblTranslTxIni">0</span>
-          <span class="lbl">Ty</span>
-          <input type="range" id="translTyIniSlide" min="-300" max="300" value="0" step="1" />
-          <span class="val" id="lblTranslTyIni">0</span>
-        </span>
-        <span class="kf-field kf2-field" style="display:none">
-          <span class="lbl">Tx</span>
-          <input type="range" id="translTxFimSlide" min="-300" max="300" value="0" step="1" />
-          <span class="val" id="lblTranslTxFim">0</span>
-          <span class="lbl">Ty</span>
-          <input type="range" id="translTyFimSlide" min="-300" max="300" value="0" step="1" />
-          <span class="val" id="lblTranslTyFim">0</span>
-        </span>
-        <span class="sep"></span>
-        <span class="lbl">Vel</span>
-        <input type="range" id="translVelSlide" min="5" max="100" value="20" step="1" />
-        <span class="val" id="lblTranslVel">0.020</span>
-      </div>
-
-      <!-- Linha Tempo -->
-      <div class="row">
-        <span class="lbl" style="min-width:52px;font-size:11px;color:#eee;">Tempo</span>
-        <span class="lbl">Dur</span>
-        <input type="range" id="duracaoSlide" min="1" max="30" value="5" step="1" />
-        <span class="val" id="lblDuracao">5s</span>
-        <span class="lbl">KF2</span>
-        <input type="range" id="tempoKF2Slide" min="0.5" max="5" value="5" step="0.5" />
-        <span class="val" id="lblTempoKF2">5.0s</span>
-      </div>
-    </div>
-  </foreignObject>
-
-  </g>
-
-  <!-- Checkbox Modo Exibição (fora do grupo toolbars, sempre visível) -->
   <g id="modoExibicao" cursor="pointer">
     <rect x="660" y="4" width="14" height="14" rx="2" fill="rgba(0,0,0,0.5)" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" />
     <text id="modoExibCheck" x="667" y="16" font-family="Arial, sans-serif" font-size="12" fill="white" text-anchor="middle" dominant-baseline="middle"></text>
     <text x="680" y="18" font-family="Arial, sans-serif" font-size="11" fill="white" dominant-baseline="middle">Modo Exibição</text>
   </g>
 
+  <g id="toolbars">
+
+  <rect id="overlayMouse" x="0" y="0" width="800" height="500" fill="none" pointer-events="visible" />
+
+  <rect id="statusBg" x="0" y="0" width="800" height="28" fill="rgba(0,0,0,0.55)" />
+  <text id="statusText" x="400" y="19" font-family="Arial, sans-serif" font-size="13" fill="white" text-anchor="middle">Pressione ▶ PLAY para iniciar a animação</text>
+
+  <g id="btnPlay" cursor="pointer">
+    <rect x="6" y="3" width="40" height="22" rx="4" fill="#4CAF50" stroke="#388E3C" stroke-width="1.5" />
+    <text id="playLabel" x="26" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#9654;</text>
+  </g>
+
+  <g id="btnUpload" cursor="pointer">
+    <rect x="52" y="3" width="40" height="22" rx="4" fill="#2196F3" stroke="#1976D2" stroke-width="1.5" />
+    <text x="72" y="19" font-family="Arial, sans-serif" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle">&#128193;</text>
+  </g>
+
+  <g id="btnReset" cursor="pointer">
+    <rect x="96" y="3" width="60" height="22" rx="4" fill="#555" stroke="#777" stroke-width="1" />
+    <text x="126" y="19" font-family="Arial, sans-serif" font-size="11" fill="#ccc" text-anchor="middle" dominant-baseline="middle">Reset</text>
+  </g>
+
+  <!-- Timeline -->
+  <rect x="30" y="323" width="740" height="6" rx="3" fill="rgba(255,255,255,0.25)" />
+  <rect id="progressBar" x="40" y="323" width="0" height="6" rx="3" fill="#4CAF50" />
+  <g id="kfContainer"><!-- keyframe groups go here --></g>
+  <g id="kfLabelContainer"><!-- keyframe time labels go here --></g>
+
+  <text id="durLabel" x="400" y="355" font-family="Arial, sans-serif" font-size="9" fill="#999" text-anchor="middle">Duração máx: 10s</text>
+  <text id="kfInfo" x="400" y="372" font-family="Courier New, monospace" font-size="11" fill="#FFD700" text-anchor="middle"></text>
+
+  <script type="text/javascript" href="../library/svg-animation-lib.js" />
+  <script type="text/javascript"><![CDATA[
+    var H = SVGAnim.Helpers, NS = H.SVG_NS;
+    var KF = SVGAnim.Keyframe;
+    var IMAGEM = '../mapa brasil 1.jpg';
+    var CENTRO_X = 400, CENTRO_Y = 250;
+    var T_BAR_X = 40, T_BAR_W = 720;
+
+    var camada = H.get('camadaZoom'), imagem = H.get('imgMapa');
+    var statusText = H.get('statusText'), statusBg = H.get('statusBg');
+    var btnPlay = H.get('btnPlay'), progressBar = H.get('progressBar');
+    var kfInfo = H.get('kfInfo');
+    var kfContainer = H.get('kfContainer'), kfLabelContainer = H.get('kfLabelContainer');
+    var durLabel = H.get('durLabel');
+
+    imagem.setAttribute('href', IMAGEM);
+
+    var camera = new SVGAnim.Camera({
+      zoom: 1.0, blur: 7, blurFilterId: 'blurElem',
+      rotationX: -25, rotationY: 15, rotationZ: 0,
+      tx: 0, ty: 0, perspective: 800,
+      zoomCenterX: CENTRO_X, zoomCenterY: CENTRO_Y
+    });
+
+    var keyframes = [
+      new KF({ tempo: 0,  zoom: 1.0, blur: 7,  rotationX: -25, rotationY: 15 }),
+      new KF({ tempo: 5,  zoom: 1.5, blur: 0,  rotationX: 0,   rotationY: 0 })
+    ];
+    var kfIdx = 0;
+    var rodando = false, modoExibicao = false;
+    var zoomEnabled = true, blurEnabled = true, rotEnabled = true, translEnabled = true;
+    var duracaoMax = 10;
+    var inicioTimestamp = null;
+    var pausadoMs = 0;
+
+    function pausar() {
+      rodando = false;
+      if (inicioTimestamp !== null) { pausadoMs += performance.now() - inicioTimestamp; inicioTimestamp = null; }
+      g('playLabel').textContent = '\u25B6';
+      statusBg.setAttribute('fill', 'rgba(0,0,0,0.55)');
+      statusText.textContent = 'Pausado — pressione ▶ PLAY para continuar';
+      if (modoExibicao) { H.get('toolbars').setAttribute('display', 'inline'); H.get('modoExibicao').setAttribute('display', 'inline'); }
+    }
+
+    var draggingKF = false, dragKFIndex = -1, dragAnchorTime = 0, dragAnchorX = 0;
+    var arrastando = false, mouseIniX = 0, mouseIniY = 0, txAnchor = 0, tyAnchor = 0;
+
+    function g(id) { return document.getElementById(id); }
+
+    function kfToScreenX(tempo) {
+      var maxT = Math.max(keyframes[keyframes.length-1].tempo, duracaoMax);
+      return T_BAR_X + (tempo / Math.max(maxT, 1)) * T_BAR_W;
+    }
+
+    /* ====== DOM DO KEYFRAME ====== */
+
+    function criarKeyframeDOM(i) {
+      var kf = keyframes[i], px = kfToScreenX(kf.tempo);
+      px = Math.max(T_BAR_X, Math.min(T_BAR_X + T_BAR_W, px));
+      var sel = (i === kfIdx);
+
+      var g = document.createElementNS(NS, 'g');
+      g.setAttribute('id', 'kf-g-' + i);
+      g.style.cursor = 'pointer';
+
+      var outer = document.createElementNS(NS, 'circle');
+      outer.setAttribute('cx', px); outer.setAttribute('cy', '326');
+      outer.setAttribute('r', '8'); outer.setAttribute('fill', '#333');
+      outer.setAttribute('stroke', '#aaa'); outer.setAttribute('stroke-width', '2');
+      g.appendChild(outer);
+
+      var inner = document.createElementNS(NS, 'circle');
+      inner.setAttribute('cx', px); inner.setAttribute('cy', '326');
+      inner.setAttribute('r', '3'); inner.setAttribute('fill', '#4CAF50');
+      inner.setAttribute('display', 'none');
+      g.appendChild(inner);
+
+      if (sel) {
+        outer.setAttribute('stroke', '#4CAF50'); outer.setAttribute('stroke-width', '2.5');
+        inner.setAttribute('display', 'inline');
+      }
+
+      g.addEventListener('mousedown', function(e) {
+        if (rodando) return;
+        e.stopPropagation();
+        kfIdx = i;
+        carregarSlidersDoKeyframe(keyframes[i]);
+        atualizarSelecaoKeyframes();
+        aplicarValoresAtuais();
+        if (i > 0) { draggingKF = true; dragKFIndex = i; dragAnchorTime = keyframes[i].tempo; dragAnchorX = e.clientX; }
+      });
+
+      kfContainer.appendChild(g);
+
+      var lbl = document.createElementNS(NS, 'text');
+      lbl.setAttribute('id', 'kf-lbl-' + i);
+      lbl.setAttribute('x', px); lbl.setAttribute('y', '355');
+      lbl.setAttribute('font-family', 'Arial, sans-serif');
+      lbl.setAttribute('font-size', '9'); lbl.setAttribute('fill', '#999');
+      lbl.setAttribute('text-anchor', 'middle');
+      lbl.textContent = (i === 0 ? '0.0s' : kf.tempo.toFixed(1) + 's');
+      kfLabelContainer.appendChild(lbl);
+    }
+
+    function moverKeyframeDOM(i, px) {
+      var grp = g('kf-g-' + i); if (!grp) return;
+      px = Math.max(T_BAR_X, Math.min(T_BAR_X + T_BAR_W, px));
+      grp.children[0].setAttribute('cx', px);
+      grp.children[1].setAttribute('cx', px);
+      var lbl = g('kf-lbl-' + i); if (lbl) lbl.setAttribute('x', px);
+    }
+
+    function removerKeyframeDOM(i) {
+      var grp = g('kf-g-' + i); if (grp) grp.parentNode.removeChild(grp);
+      var lbl = g('kf-lbl-' + i); if (lbl) lbl.parentNode.removeChild(lbl);
+    }
+
+    function atualizarSelecaoKeyframes() {
+      for (var i = 0; i < keyframes.length; i++) {
+        var grp = g('kf-g-' + i); if (!grp) { criarKeyframeDOM(i); grp = g('kf-g-' + i); }
+        var sel = (i === kfIdx);
+        var outer = grp.children[0], inner = grp.children[1];
+        outer.setAttribute('stroke', sel ? '#4CAF50' : '#aaa');
+        outer.setAttribute('stroke-width', sel ? '2.5' : '2');
+        inner.setAttribute('display', sel ? 'inline' : 'none');
+      }
+      var kf = keyframes[kfIdx];
+      kfInfo.textContent = 'KF' + (kfIdx+1) + ' (t=' + kf.tempo.toFixed(1) + 's): Zoom ' +
+        kf.zoom.toFixed(1) + ' | Blur ' + kf.blur + ' | Pitch ' + kf.rotationX +
+        '° Yaw ' + kf.rotationY + '° Roll ' + kf.rotationZ + '° | Tx ' + kf.tx + ' Ty ' + kf.ty;
+    }
+
+    function reconstruirTodosKeyframesDOM() {
+      while (kfContainer.firstChild) kfContainer.removeChild(kfContainer.firstChild);
+      while (kfLabelContainer.firstChild) kfLabelContainer.removeChild(kfLabelContainer.firstChild);
+      for (var i = 0; i < keyframes.length; i++) criarKeyframeDOM(i);
+      durLabel.textContent = 'Duração máx: ' + duracaoMax + 's | KFs: ' + keyframes.length;
+    }
+
+    /* ====== LEITURA / APLICAÇÃO DE SLIDERS ====== */
+
+    function lerSliders() {
+      var kf = keyframes[kfIdx], el;
+      kf.zoom = (el = g('zoomSlide')) ? (el.value / 10) : 1.0;
+      kf.blur = parseInt((el = g('blurSlide')) ? el.value : 7);
+      kf.rotationX = parseInt((el = g('pitchSlide')) ? el.value : 0);
+      kf.rotationY = parseInt((el = g('yawSlide')) ? el.value : 0);
+      kf.rotationZ = parseInt((el = g('rollSlide')) ? el.value : 0);
+      kf.tx = parseInt((el = g('txSlide')) ? el.value : 0);
+      kf.ty = parseInt((el = g('tySlide')) ? el.value : 0);
+      zoomEnabled = g('chkZoom') ? g('chkZoom').checked : true;
+      blurEnabled = g('chkBlur') ? g('chkBlur').checked : true;
+      rotEnabled = g('chkRot') ? g('chkRot').checked : true;
+      translEnabled = g('chkTransl') ? g('chkTransl').checked : true;
+      duracaoMax = (el = g('duracaoSlide')) ? parseInt(el.value) : 10;
+      for (var i = 1; i < keyframes.length; i++) {
+        if (keyframes[i].tempo > duracaoMax) keyframes[i].tempo = duracaoMax;
+        if (keyframes[i].tempo <= keyframes[i-1].tempo) keyframes[i].tempo = keyframes[i-1].tempo + 0.5;
+      }
+      aplicarValoresAtuais();
+    }
+
+    function aplicarKeyframeNaCamera(kf) {
+      camera.zoom = kf.zoom; camera.blur = kf.blur;
+      camera.rotationX = kf.rotationX; camera.rotationY = kf.rotationY; camera.rotationZ = kf.rotationZ;
+      camera.tx = kf.tx; camera.ty = kf.ty; camera.perspective = kf.perspective;
+      if (camera.blurFilterId) { var fe = document.getElementById(camera.blurFilterId); if (fe) fe.setAttribute('stdDeviation', camera.blur); }
+      camada.style.transform = camera.getCameraTransform();
+      camada.style.transformOrigin = '0 0';
+    }
+
+    function aplicarValoresAtuais() { if (!rodando) { aplicarKeyframeNaCamera(keyframes[kfIdx]); atualizarStatus(); } }
+
+    function atualizarStatus() {
+      statusText.textContent =
+        'Zoom: ' + camera.zoom.toFixed(2) + 'x  |  Blur: ' + camera.blur.toFixed(1) + 'px  |  ' +
+        'Pitch: ' + camera.rotationX.toFixed(1) + '°  Yaw: ' + camera.rotationY.toFixed(1) +
+        '°  Roll: ' + camera.rotationZ.toFixed(1) + '°  |  Tx: ' + camera.tx.toFixed(0) + ' Ty: ' + camera.ty.toFixed(0);
+    }
+
+    function atualizarSliderLabels() {
+      var el;
+      if ((el = g('zoomSlide'))) g('lblZoom').textContent = (el.value/10).toFixed(1);
+      if ((el = g('blurSlide'))) g('lblBlur').textContent = el.value;
+      if ((el = g('pitchSlide'))) g('lblPitch').textContent = el.value;
+      if ((el = g('yawSlide'))) g('lblYaw').textContent = el.value;
+      if ((el = g('rollSlide'))) g('lblRoll').textContent = el.value;
+      if ((el = g('txSlide'))) g('lblTx').textContent = el.value;
+      if ((el = g('tySlide'))) g('lblTy').textContent = el.value;
+    }
+
+    function carregarSlidersDoKeyframe(kf) {
+      g('zoomSlide').value = Math.round(kf.zoom * 10);
+      g('blurSlide').value = Math.round(kf.blur);
+      g('pitchSlide').value = Math.round(kf.rotationX);
+      g('yawSlide').value = Math.round(kf.rotationY);
+      g('rollSlide').value = Math.round(kf.rotationZ);
+      g('txSlide').value = Math.round(kf.tx);
+      g('tySlide').value = Math.round(kf.ty);
+      atualizarSliderLabels();
+    }
+
+    /* ====== SELEÇÃO E MANIPULAÇÃO DE KEYFRAMES ====== */
+
+    function selecionarKF(i) {
+      if (rodando) return;
+      kfIdx = Math.max(0, Math.min(keyframes.length - 1, i));
+      carregarSlidersDoKeyframe(keyframes[kfIdx]);
+      atualizarSelecaoKeyframes();
+      for (var j = 0; j < keyframes.length; j++) {
+        moverKeyframeDOM(j, kfToScreenX(keyframes[j].tempo));
+        var lbl = g('kf-lbl-' + j); if (lbl) lbl.textContent = (j===0 ? '0.0s' : keyframes[j].tempo.toFixed(1) + 's');
+      }
+      aplicarValoresAtuais();
+      durLabel.textContent = 'Duração máx: ' + duracaoMax + 's | KFs: ' + keyframes.length;
+    }
+
+    function addKeyframe() {
+      if (rodando) return;
+      lerSliders();
+      var next = (kfIdx + 1 < keyframes.length) ? keyframes[kfIdx + 1] : null;
+      var novo;
+      if (next) {
+        var seg = next.tempo - keyframes[kfIdx].tempo;
+        var t = keyframes[kfIdx].tempo + 0.5;
+        if (t >= next.tempo) t = keyframes[kfIdx].tempo + seg / 2;
+        var f = seg > 0 ? (t - keyframes[kfIdx].tempo) / seg : 0.5;
+        novo = keyframes[kfIdx].lerp(next, f);
+        novo.tempo = t;
+      } else {
+        novo = keyframes[kfIdx].clone();
+        novo.tempo = keyframes[kfIdx].tempo + 1;
+      }
+      keyframes.splice(kfIdx + 1, 0, novo);
+      for (var i = kfIdx + 1; i < keyframes.length; i++) {
+        removerKeyframeDOM(i);
+      }
+      for (var i = kfIdx + 1; i < keyframes.length; i++) criarKeyframeDOM(i);
+      selecionarKF(kfIdx + 1);
+      salvarEstado();
+    }
+
+    function removeKeyframe() {
+      if (rodando || keyframes.length <= 2) return;
+      lerSliders();
+      var removido = kfIdx;
+      keyframes.splice(removido, 1);
+      for (var i = removido; i <= keyframes.length; i++) removerKeyframeDOM(i);
+      for (var i = removido; i < keyframes.length; i++) criarKeyframeDOM(i);
+      if (kfIdx >= keyframes.length) kfIdx = keyframes.length - 1;
+      selecionarKF(kfIdx);
+      salvarEstado();
+    }
+
+    /* ====== ANIMAÇÃO ====== */
+
+    function animar(timestamp) {
+      if (!rodando) return;
+      if (inicioTimestamp === null) inicioTimestamp = timestamp;
+      var t = pausadoMs / 1000 + (timestamp - inicioTimestamp) / 1000;
+      var last = keyframes[keyframes.length - 1];
+      t = Math.min(t, last.tempo);
+
+      for (var i = 0; i < keyframes.length - 1; i++) {
+        var k0 = keyframes[i], k1 = keyframes[i+1];
+        if (t >= k0.tempo && t <= k1.tempo) {
+          var seg = k1.tempo - k0.tempo;
+          var f = seg > 0 ? (t - k0.tempo) / seg : 1;
+          var interp = k0.lerp(k1, f);
+          if (zoomEnabled) camera.zoom = interp.zoom;
+          if (blurEnabled) camera.blur = interp.blur;
+          if (rotEnabled) { camera.rotationX = interp.rotationX; camera.rotationY = interp.rotationY; camera.rotationZ = interp.rotationZ; }
+          if (translEnabled) { camera.tx = interp.tx; camera.ty = interp.ty; }
+          if (camera.blurFilterId) { var fe = document.getElementById(camera.blurFilterId); if (fe) fe.setAttribute('stdDeviation', camera.blur); }
+          if (kfIdx !== i) { kfIdx = i; atualizarSelecaoKeyframes(); carregarSlidersDoKeyframe(keyframes[i]); }
+          break;
+        }
+      }
+
+      camada.style.transform = camera.getCameraTransform();
+      camada.style.transformOrigin = '0 0';
+      atualizarStatus();
+
+      var prog = t / last.tempo;
+      var ultX = kfToScreenX(last.tempo);
+      progressBar.setAttribute('width', Math.max(0, Math.min(ultX - T_BAR_X, (ultX - T_BAR_X) * prog)));
+
+      if (t < last.tempo) {
+        requestAnimationFrame(animar);
+      } else {
+        progressBar.setAttribute('width', Math.max(0, ultX - T_BAR_X));
+        rodando = false;
+        selecionarKF(keyframes.length - 1);
+        if (modoExibicao) { H.get('toolbars').setAttribute('display', 'inline'); H.get('modoExibicao').setAttribute('display', 'inline'); }
+        g('playLabel').textContent = '\u25B6';
+        statusBg.setAttribute('fill', 'rgba(0,0,0,0.55)');
+        statusText.textContent = 'Animação concluída — ajuste os parâmetros e pressione ▶ PLAY';
+        pausadoMs = 0;
+      }
+    }
+
+    function iniciar() {
+      if (rodando) { pausar(); return; }
+      if (keyframes.length < 2) return;
+      if (pausadoMs === 0) {
+        lerSliders();
+        aplicarKeyframeNaCamera(keyframes[0]);
+        progressBar.setAttribute('width', '0');
+      }
+      if (modoExibicao) { H.get('toolbars').setAttribute('display', 'none'); H.get('modoExibicao').setAttribute('display', 'none'); }
+      inicioTimestamp = null; rodando = true;
+      g('playLabel').textContent = '\u23F8';
+      statusBg.setAttribute('fill', 'rgba(76,175,80,0.6)');
+      requestAnimationFrame(animar);
+    }
+
+    /* ====== EVENTOS DE MOUSE ====== */
+
+    btnPlay.addEventListener('click', iniciar);
+
+    H.get('btnUpload').addEventListener('click', function() { var fi = g('fileInput'); if (fi) fi.click(); });
+
+    H.get('btnReset').addEventListener('click', function() {
+      if (rodando) return;
+      try { localStorage.removeItem('SVG_ZOOM_STATE'); } catch(e) {}
+      keyframes = [
+        new KF({ tempo: 0, zoom: 1.0, blur: 7, rotationX: -25, rotationY: 15 }),
+        new KF({ tempo: 5, zoom: 1.5, blur: 0, rotationX: 0, rotationY: 0 })
+      ];
+      duracaoMax = 10; g('duracaoSlide').value = 10;
+      zoomEnabled = true; blurEnabled = true; rotEnabled = true; translEnabled = true;
+      g('chkZoom').checked = true; g('chkBlur').checked = true; g('chkRot').checked = true; g('chkTransl').checked = true;
+      imagem.setAttribute('href', IMAGEM);
+      modoExibicao = false; g('modoExibCheck').textContent = '';
+      kfIdx = 0;
+      reconstruirTodosKeyframesDOM();
+      carregarSlidersDoKeyframe(keyframes[0]);
+      atualizarSelecaoKeyframes();
+      aplicarValoresAtuais();
+      statusText.textContent = 'Configurações resetadas — pressione ▶ PLAY';
+      salvarEstado();
+    });
+
+    document.addEventListener('change', function(e) {
+      if (e.target && e.target.id === 'fileInput') {
+        var file = e.target.files[0]; if (!file) return;
+        var r = new FileReader();
+        r.onload = function(ev) { imagem.setAttribute('href', ev.target.result); statusText.textContent = 'Imagem carregada: ' + file.name; salvarEstado(); };
+        r.readAsDataURL(file);
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      var a = document.activeElement; if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+      if (e.code === 'Home') { e.preventDefault(); if (!rodando) selecionarKF(0); }
+      if (e.code === 'End') { e.preventDefault(); if (!rodando) selecionarKF(keyframes.length - 1); }
+      if (e.code === 'Space') { e.preventDefault(); iniciar(); }
+    });
+
+    H.get('overlayMouse').addEventListener('mousedown', function(e) {
+      if (rodando) return;
+      arrastando = true; mouseIniX = e.clientX; mouseIniY = e.clientY;
+      lerSliders(); txAnchor = keyframes[kfIdx].tx; tyAnchor = keyframes[kfIdx].ty;
+    });
+
+    window.addEventListener('mousemove', function(e) {
+      if (draggingKF && !rodando) {
+        var rect = H.get('svgRaiz').getBoundingClientRect();
+        var scale = 800 / rect.width, dx = (e.clientX - dragAnchorX) * scale;
+        var raw = dragAnchorTime + (dx / T_BAR_W) * Math.max(keyframes[keyframes.length-1].tempo, duracaoMax);
+        raw = Math.max(0.5, Math.min(duracaoMax, raw));
+        var next = (dragKFIndex + 1 < keyframes.length) ? keyframes[dragKFIndex+1].tempo : duracaoMax;
+        var prev = keyframes[dragKFIndex-1].tempo;
+        raw = Math.max(prev + 0.5, Math.min(next - 0.1, raw));
+        keyframes[dragKFIndex].tempo = raw;
+        moverKeyframeDOM(dragKFIndex, kfToScreenX(raw));
+        var lbl = g('kf-lbl-' + dragKFIndex); if (lbl) lbl.textContent = raw.toFixed(1) + 's';
+        aplicarValoresAtuais(); return;
+      }
+      if (!arrastando || rodando) return;
+      var dx = e.clientX - mouseIniX, dy = e.clientY - mouseIniY;
+      var ntx = Math.round(Math.max(-300, Math.min(300, txAnchor + dx)));
+      var nty = Math.round(Math.max(-300, Math.min(300, tyAnchor + dy)));
+      keyframes[kfIdx].tx = ntx; keyframes[kfIdx].ty = nty;
+      g('txSlide').value = ntx; g('tySlide').value = nty;
+      atualizarSliderLabels(); aplicarValoresAtuais(); salvarEstado();
+    });
+
+    window.addEventListener('mouseup', function(e) {
+      arrastando = false;
+      if (draggingKF) { draggingKF = false; dragKFIndex = -1; selecionarKF(kfIdx); salvarEstado(); }
+    });
+
+    H.get('overlayMouse').addEventListener('wheel', function(e) {
+      if (rodando || !e.ctrlKey) return; e.preventDefault();
+      var d = e.deltaY < 0 ? 1 : -1;
+      keyframes[kfIdx].zoom = Math.max(1.0, Math.min(3.0, keyframes[kfIdx].zoom + d * 0.1));
+      g('zoomSlide').value = Math.round(keyframes[kfIdx].zoom * 10);
+      atualizarSliderLabels(); aplicarValoresAtuais(); salvarEstado();
+    });
+
+    H.get('modoExibicao').addEventListener('click', function() {
+      modoExibicao = !modoExibicao;
+      g('modoExibCheck').textContent = modoExibicao ? '\u2713' : '';
+      salvarEstado();
+    });
+
+    /* ====== PERSISTÊNCIA ====== */
+
+    function salvarEstado() {
+      try {
+        var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, duracaoMax: duracaoMax,
+          zoomEnabled: zoomEnabled, blurEnabled: blurEnabled, rotEnabled: rotEnabled, translEnabled: translEnabled, kfs: [] };
+        for (var i = 0; i < keyframes.length; i++) {
+          var k = keyframes[i];
+          state.kfs.push({ tempo: k.tempo, zoom: k.zoom, blur: k.blur, rotationX: k.rotationX, rotationY: k.rotationY,
+            rotationZ: k.rotationZ, tx: k.tx, ty: k.ty, perspective: k.perspective });
+        }
+        localStorage.setItem('SVG_ZOOM_STATE', JSON.stringify(state));
+      } catch(e) {}
+    }
+
+    function carregarEstado() {
+      try {
+        var json = localStorage.getItem('SVG_ZOOM_STATE'); if (!json) return;
+        var st = JSON.parse(json);
+        if (st.imagem) imagem.setAttribute('href', st.imagem);
+        if (st.modoExibicao !== undefined) { modoExibicao = st.modoExibicao; g('modoExibCheck').textContent = modoExibicao ? '\u2713' : ''; }
+        if (st.duracaoMax !== undefined) { duracaoMax = st.duracaoMax; g('duracaoSlide').value = duracaoMax; }
+        if (st.zoomEnabled !== undefined) zoomEnabled = st.zoomEnabled;
+        if (st.blurEnabled !== undefined) blurEnabled = st.blurEnabled;
+        if (st.rotEnabled !== undefined) rotEnabled = st.rotEnabled;
+        if (st.translEnabled !== undefined) translEnabled = st.translEnabled;
+        if (st.kfs && st.kfs.length >= 2) {
+          keyframes = [];
+          for (var i = 0; i < st.kfs.length; i++) keyframes.push(new KF(st.kfs[i]));
+        }
+      } catch(e) {}
+    }
+
+    /* ====== INICIALIZAÇÃO ====== */
+
+    function setupSliderListeners() {
+      var sls = document.querySelectorAll('input[type=range], input[type=checkbox]');
+      for (var i = 0; i < sls.length; i++) {
+        sls[i].addEventListener('input', function() { lerSliders(); atualizarSliderLabels(); atualizarSelecaoKeyframes(); salvarEstado(); });
+      }
+      g('btnAddKF').addEventListener('click', addKeyframe);
+      g('btnDelKF').addEventListener('click', removeKeyframe);
+    }
+
+    var panelReady = false;
+    function initQuandoPronto() {
+      if (panelReady) return; if (!g('zoomSlide')) return;
+      panelReady = true;
+      carregarEstado();
+      setupSliderListeners();
+      g('chkZoom').checked = zoomEnabled; g('chkBlur').checked = blurEnabled;
+      g('chkRot').checked = rotEnabled; g('chkTransl').checked = translEnabled;
+      reconstruirTodosKeyframesDOM();
+      kfIdx = 0; carregarSlidersDoKeyframe(keyframes[0]);
+      atualizarSelecaoKeyframes(); aplicarValoresAtuais();
+    }
+    setTimeout(initQuandoPronto, 200);
+    var poll = setInterval(function() { if (!panelReady) initQuandoPronto(); else clearInterval(poll); }, 100);
+
+    aplicarKeyframeNaCamera(keyframes[0]);
+    atualizarStatus();
+  ]]></script>
+
+  <foreignObject x="0" y="390" width="800" height="120">
+    <div xmlns="http://www.w3.org/1999/xhtml" id="painelControles" style="
+      font-family: Arial, sans-serif; font-size: 11px; color: #eee;
+      background: rgba(20,20,20,0.85); padding: 4px 8px;
+      box-sizing: border-box; width: 800px; user-select: none; overflow: visible;
+    ">
+      <style>
+        #painelControles .row { display: flex; align-items: center; margin-bottom: 3px; gap: 4px; }
+        #painelControles label { white-space: nowrap; cursor: pointer; }
+        #painelControles label.chk { min-width: 52px; }
+        #painelControles span.lbl { min-width: 30px; text-align: center; font-size: 10px; color: #aaa; }
+        #painelControles span.val { min-width: 28px; text-align: right; color: #FFD700; font-variant-numeric: tabular-nums; }
+        #painelControles input[type=range] { width: 68px; margin: 0 2px; accent-color: #4CAF50; }
+        #painelControles input[type=checkbox] { accent-color: #4CAF50; margin: 0; }
+        #painelControles button { font-size: 11px; padding: 2px 8px; background: #555; color: #eee; border: 1px solid #777; border-radius: 3px; cursor: pointer; }
+        #painelControles button:hover { background: #4CAF50; }
+      </style>
+
+      <input type="file" id="fileInput" accept="image/*" style="display:none" />
+
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="chkZoom" checked="checked" />Zoom</label>
+        <span class="lbl">Zoom</span>
+        <input type="range" id="zoomSlide" min="10" max="30" value="10" step="1" />
+        <span class="val" id="lblZoom">1.0</span>
+        <label class="chk"><input type="checkbox" id="chkBlur" checked="checked" />Blur</label>
+        <span class="lbl">Blur</span>
+        <input type="range" id="blurSlide" min="0" max="15" value="7" step="1" />
+        <span class="val" id="lblBlur">7</span>
+      </div>
+
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="chkRot" checked="checked" />Rot3D</label>
+        <span class="lbl">Pitch</span>
+        <input type="range" id="pitchSlide" min="-90" max="90" value="-25" step="1" />
+        <span class="val" id="lblPitch">-25</span>
+        <span class="lbl">Yaw</span>
+        <input type="range" id="yawSlide" min="-90" max="90" value="15" step="1" />
+        <span class="val" id="lblYaw">15</span>
+        <span class="lbl">Roll</span>
+        <input type="range" id="rollSlide" min="-90" max="90" value="0" step="1" />
+        <span class="val" id="lblRoll">0</span>
+      </div>
+
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="chkTransl" checked="checked" />Trans</label>
+        <span class="lbl">Tx</span>
+        <input type="range" id="txSlide" min="-300" max="300" value="0" step="1" />
+        <span class="val" id="lblTx">0</span>
+        <span class="lbl">Ty</span>
+        <input type="range" id="tySlide" min="-300" max="300" value="0" step="1" />
+        <span class="val" id="lblTy">0</span>
+        <span style="min-width:8px"></span>
+        <span class="lbl">Duração</span>
+        <input type="range" id="duracaoSlide" min="1" max="30" value="10" step="1" />
+        <span class="val" id="lblDuracao">10s</span>
+        <button id="btnAddKF">+ KF</button>
+        <button id="btnDelKF">− KF</button>
+      </div>
+    </div>
+  </foreignObject>
+
+  </g>
 </svg>

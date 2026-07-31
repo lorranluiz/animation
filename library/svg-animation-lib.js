@@ -1047,6 +1047,45 @@ var SVGAnim = (function () {
   // API Pública
   // ========================================================================
 
+  // ========================================================================
+  // Keyframe - Unidade de keyframe
+  // ========================================================================
+
+  function Keyframe(config) {
+    config = config || {};
+    this.tempo = config.tempo !== undefined ? config.tempo : 0;
+    this.zoom = config.zoom !== undefined ? config.zoom : 1.0;
+    this.blur = config.blur !== undefined ? config.blur : 0;
+    this.rotationX = config.rotationX !== undefined ? config.rotationX : 0;
+    this.rotationY = config.rotationY !== undefined ? config.rotationY : 0;
+    this.rotationZ = config.rotationZ !== undefined ? config.rotationZ : 0;
+    this.tx = config.tx !== undefined ? config.tx : 0;
+    this.ty = config.ty !== undefined ? config.ty : 0;
+    this.perspective = config.perspective !== undefined ? config.perspective : 800;
+  }
+
+  Keyframe.prototype.clone = function () {
+    return new Keyframe(this);
+  };
+
+  Keyframe.prototype.lerp = function (other, t) {
+    return new Keyframe({
+      tempo: this.tempo + (other.tempo - this.tempo) * t,
+      zoom: this.zoom + (other.zoom - this.zoom) * t,
+      blur: this.blur + (other.blur - this.blur) * t,
+      rotationX: this.rotationX + (other.rotationX - this.rotationX) * t,
+      rotationY: this.rotationY + (other.rotationY - this.rotationY) * t,
+      rotationZ: this.rotationZ + (other.rotationZ - this.rotationZ) * t,
+      tx: this.tx + (other.tx - this.tx) * t,
+      ty: this.ty + (other.ty - this.ty) * t,
+      perspective: this.perspective + (other.perspective - this.perspective) * t
+    });
+  };
+
+  // ========================================================================
+  // API Pública
+  // ========================================================================
+
   return {
     version: '1.0.0',
     Helpers: Helpers,
@@ -1058,7 +1097,8 @@ var SVGAnim = (function () {
     DynamicRuler: DynamicRuler,
     VerticalRuler: VerticalRuler,
     InputManager: InputManager,
-    UIManager: UIManager
+    UIManager: UIManager,
+    Keyframe: Keyframe
   };
 
 })();
