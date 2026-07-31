@@ -343,7 +343,7 @@
         rodando = false;
         selecionarKF(keyframes.length - 1);
         if (modoExibicao) { H.get('toolbars').setAttribute('display', 'inline'); H.get('modoExibicao').setAttribute('display', 'inline'); }
-        if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); }
+        if (gravando) { try { mediaRecorder.stop(); gravando = false; } catch(e) {} }
         g('playLabel').textContent = '\u25B6';
         statusBg.setAttribute('fill', 'rgba(0,0,0,0.55)');
         statusText.textContent = 'Animação concluída — ajuste os parâmetros e pressione ▶ PLAY';
@@ -396,10 +396,12 @@
 
     var mediaRecorder = null;
     var recordedChunks = [];
+    var gravando = false;
 
     H.get('btnRecord').addEventListener('click', function() {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      if (mediaRecorder) {
         mediaRecorder.stop();
+        gravando = false;
         return;
       }
 
@@ -424,22 +426,44 @@
 
           mediaRecorder.onstop = function() {
             try { if (document.fullscreenElement) document.exitFullscreen(); } catch(e) {}
-            var blob = new Blob(recordedChunks, { type: 'video/webm' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElementNS('http://www.w3.org/1999/xhtml', 'a');
-            a.href = url; a.download = 'animacao-gravada.webm';
-            document.documentElement.appendChild(a);
-            a.click();
-            document.documentElement.removeChild(a);
-            URL.revokeObjectURL(url);
+            var webmBlob = new Blob(recordedChunks, { type: 'video/webm' });
 
-            stream.getTracks().forEach(function(t) { t.stop(); });
-            mediaRecorder = null;
-            g('recordLabel').textContent = '\u25CF Gravar';
-            statusText.textContent = 'Vídeo salvo como animacao-gravada.webm — converta: ffmpeg -i animacao-gravada.webm output.mp4';
+            function baixarArquivo(blob, nome) {
+              var url = URL.createObjectURL(blob);
+              var a = document.createElementNS('http://www.w3.org/1999/xhtml', 'a');
+              a.href = url; a.download = nome;
+              document.documentElement.appendChild(a); a.click();
+              document.documentElement.removeChild(a);
+              URL.revokeObjectURL(url);
+            }
+
+            function finalizar(msg, blob, nome) {
+              stream.getTracks().forEach(function(t) { t.stop(); });
+              mediaRecorder = null; gravando = false;
+              g('recordLabel').textContent = '\u25CF Gravar';
+              if (blob) baixarArquivo(blob, nome);
+              statusText.textContent = msg;
+            }
+
+            statusText.textContent = 'Convertendo para MP4...';
+            var form = new FormData();
+            form.append('video', webmBlob, 'video.webm');
+
+            var xhrC = new XMLHttpRequest();
+            xhrC.open('POST', '/convert', true);
+            xhrC.responseType = 'blob';
+            xhrC.timeout = 120000;
+            xhrC.onload = function() {
+              if (xhrC.status === 200) finalizar('MP4 salvo como animacao.mp4', xhrC.response, 'animacao.mp4');
+              else finalizar('Conversão falhou — WebM salvo', webmBlob, 'animacao-gravada.webm');
+            };
+            xhrC.onerror = function() { finalizar('Servidor offline — WebM salvo', webmBlob, 'animacao-gravada.webm'); };
+            xhrC.ontimeout = function() { finalizar('Conversão demorou — WebM salvo', webmBlob, 'animacao-gravada.webm'); };
+            xhrC.send(webmBlob);
           };
 
           mediaRecorder.start();
+          gravando = true;
           g('recordLabel').textContent = '\u25A0 Parar';
           statusText.textContent = 'Gravando...';
 
