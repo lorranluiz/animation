@@ -16,11 +16,6 @@
     <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" />
   </g>
 
-  <g id="modoExibicao" cursor="pointer">
-    <rect x="660" y="4" width="14" height="14" rx="2" fill="rgba(0,0,0,0.5)" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" />
-    <text id="modoExibCheck" x="667" y="16" font-family="Arial, sans-serif" font-size="12" fill="white" text-anchor="middle" dominant-baseline="middle"></text>
-    <text x="680" y="18" font-family="Arial, sans-serif" font-size="11" fill="white" dominant-baseline="middle">Modo Exibição</text>
-  </g>
 
   <g id="toolbars">
 
@@ -458,14 +453,6 @@
       atualizarSliderLabels(); aplicarValoresAtuais(); salvarEstado();
     });
 
-    H.get('modoExibicao').addEventListener('click', function() {
-      modoExibicao = !modoExibicao;
-      g('modoExibCheck').textContent = modoExibicao ? '\u2713' : '';
-      salvarEstado();
-    });
-
-    /* ====== PERSISTÊNCIA ====== */
-
     function salvarEstado() {
       try {
         var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, duracaoMax: duracaoMax,
@@ -497,8 +484,6 @@
       } catch(e) {}
     }
 
-    /* ====== INICIALIZAÇÃO ====== */
-
     function setupSliderListeners() {
       var sls = document.querySelectorAll('input[type=range], input[type=checkbox]');
       for (var i = 0; i < sls.length; i++) {
@@ -519,6 +504,12 @@
       reconstruirTodosKeyframesDOM();
       kfIdx = 0; carregarSlidersDoKeyframe(keyframes[0]);
       atualizarSelecaoKeyframes(); aplicarValoresAtuais();
+
+      H.get('modoExibicao').addEventListener('click', function() {
+        modoExibicao = !modoExibicao;
+        g('modoExibCheck').textContent = modoExibicao ? '\u2713' : '';
+        salvarEstado();
+      });
     }
     setTimeout(initQuandoPronto, 200);
     var poll = setInterval(function() { if (!panelReady) initQuandoPronto(); else clearInterval(poll); }, 100);
@@ -588,6 +579,12 @@
       </div>
     </div>
   </foreignObject>
+
+  <g id="modoExibicao" cursor="pointer">
+    <rect x="660" y="4" width="14" height="14" rx="2" fill="rgba(0,0,0,0.5)" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" />
+    <text id="modoExibCheck" x="667" y="16" font-family="Arial, sans-serif" font-size="12" fill="white" text-anchor="middle" dominant-baseline="middle"></text>
+    <text x="680" y="18" font-family="Arial, sans-serif" font-size="11" fill="white" dominant-baseline="middle">Modo Exibição</text>
+  </g>
 
   </g>
 </svg>
