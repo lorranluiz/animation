@@ -100,6 +100,7 @@
   #btnEraser  { background:#555; border-color:#777; }
   #btnRecord  { background:#F44336; border-color:#C62828; }
   #btnReset   { background:#555; border-color:#777; }
+  .shape-btn.active { background:#4CAF50 !important; border-color:#388E3C !important; color:#fff !important; }
 
   #timelineSvg {
     position:absolute; top:323px; left:0;
@@ -182,6 +183,9 @@
       <button id="btnSave" class="toolBtn" title="Salvar projeto">&#128190;</button>
       <button id="btnPen" class="toolBtn" title="Caneta">&#128395;</button>
       <button id="btnEraser" class="toolBtn" title="Borracha">&#129534;</button>
+      <button id="btnLine" class="toolBtn shape-btn" title="Linha reta" style="display:none">&#128207;</button>
+      <button id="btnEllipse" class="toolBtn shape-btn" title="Elipse" style="display:none">&#11093;</button>
+      <button id="btnRect" class="toolBtn shape-btn" title="Retângulo" style="display:none">&#11036;</button>
       <div id="penRow" class="row" style="display:none">
         <span class="lbl">Esp.</span>
         <input type="range" id="penThickness" min="1" max="20" value="5" step="0.5">
@@ -342,6 +346,8 @@
   var canetaColor = '#FFFF00';
   var canetaOpacity = 0.4;
   var modoBorracha = false;
+  var drawingMode = 'freehand';
+  var _shapeStartX = 0, _shapeStartY = 0;
   var marcacaoAtiva = false;
   var cameraSaved = null;
   var restaurando = false;
@@ -420,6 +426,9 @@
       var el = $(id); if (el) el.classList.add('marking-hidden');
     });
     $('penRow').style.display = 'flex';
+    ['btnLine','btnEllipse','btnRect'].forEach(function(id) {
+      var el = $(id); if (el) el.style.display = '';
+    });
     $('statusBar').classList.add('marking-mode');
 
     ['lbTop','lbBot','lbLeft','lbRight','guideTop','guideBot','guideLeft','guideRight'].forEach(function(id) {
@@ -490,6 +499,9 @@
       var el = $(id); if (el) el.classList.remove('marking-hidden');
     });
     $('penRow').style.display = 'none';
+    ['btnLine','btnEllipse','btnRect'].forEach(function(id) {
+      var el = $(id); if (el) el.style.display = 'none';
+    });
     $('statusBar').classList.remove('marking-mode');
 
     ['lbTop','lbBot','lbLeft','lbRight','guideTop','guideBot','guideLeft','guideRight'].forEach(function(id) {
@@ -1081,6 +1093,38 @@
     };
   }
 
+  function shapePath(type, x1, y1, x2, y2) {
+    if (type === 'line') {
+      return 'M' + x1.toFixed(1) + ',' + y1.toFixed(1) + ' L' + x2.toFixed(1) + ',' + y2.toFixed(1);
+    }
+    if (type === 'rect') {
+      return 'M' + x1.toFixed(1) + ',' + y1.toFixed(1) +
+             ' L' + x2.toFixed(1) + ',' + y1.toFixed(1) +
+             ' L' + x2.toFixed(1) + ',' + y2.toFixed(1) +
+             ' L' + x1.toFixed(1) + ',' + y2.toFixed(1) + ' Z';
+    }
+    if (type === 'ellipse') {
+      var cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+      var rx = Math.abs(x2 - x1) / 2, ry = Math.abs(y2 - y1) / 2;
+      if (rx < 0.5 || ry < 0.5) return '';
+      return 'M' + cx.toFixed(1) + ',' + (cy - ry).toFixed(1) +
+             ' A' + rx.toFixed(1) + ',' + ry.toFixed(1) + ' 0 1,0 ' + cx.toFixed(1) + ',' + (cy + ry).toFixed(1) +
+             ' A' + rx.toFixed(1) + ',' + ry.toFixed(1) + ' 0 1,0 ' + cx.toFixed(1) + ',' + (cy - ry).toFixed(1) + ' Z';
+    }
+    return '';
+  }
+
+  function setDrawingMode(mode) {
+    drawingMode = mode;
+    modoBorracha = false;
+    $('btnEraser').style.background = '#555';
+    $('btnEraser').style.borderColor = '#777';
+    $('btnEraser').style.color = '#fff';
+    $('btnLine').classList.toggle('active', mode === 'line');
+    $('btnEllipse').classList.toggle('active', mode === 'ellipse');
+    $('btnRect').classList.toggle('active', mode === 'rect');
+  }
+
   viewport.addEventListener('mousedown', function(e) {
     if (rodando) return;
     if (e.target.closest('#statusBar, #controlsPanel, #timelineSvg, #modoExibicao, #panelHandle')) return;
@@ -1113,6 +1157,22 @@
           if (hit >= 0) break;
         }
         if (hit >= 0) { marks.splice(hit, 1); applyCurrentValues(); salvarEstado(); }
+        return;
+      }
+      if (drawingMode !== 'freehand') {
+        _shapeStartX = pos.x; _shapeStartY = pos.y;
+        drawingPath = 'shape';
+        var prev = document.getElementById('drawingPreview');
+        if (prev) prev.parentNode.removeChild(prev);
+        var p = document.createElementNS(H.SVG_NS, 'path');
+        p.setAttribute('id', 'drawingPreview');
+        p.setAttribute('d', 'M0,0');
+        p.setAttribute('stroke', corCanetaRGBA(0.5));
+        p.setAttribute('stroke-width', canetaThickness);
+        p.setAttribute('fill', 'none');
+        p.setAttribute('stroke-linecap', 'round');
+        p.setAttribute('stroke-linejoin', 'round');
+        $('highlightsLayer').appendChild(p);
         return;
       }
       drawingPath = 'M' + pos.x.toFixed(1) + ',' + pos.y.toFixed(1);
@@ -1171,10 +1231,16 @@
       var maxY = marcacaoAtiva ? IMG_H : 500;
       pc.style.display = (pos.x >= 0 && pos.x <= maxX && pos.y >= 0 && pos.y <= maxY) ? 'block' : 'none';
       if (drawingPath && pos.x >= 0 && pos.x <= maxX && pos.y >= 0 && pos.y <= maxY) {
-        drawingPath += ' L' + pos.x.toFixed(1) + ',' + pos.y.toFixed(1);
-        drawingPoints.push({x: pos.x, y: pos.y});
-        var dp = document.getElementById('drawingPreview');
-        if (dp) dp.setAttribute('d', drawingPath);
+        if (drawingPath === 'shape') {
+          var sp = shapePath(drawingMode, _shapeStartX, _shapeStartY, pos.x, pos.y);
+          var dp = document.getElementById('drawingPreview');
+          if (dp) dp.setAttribute('d', sp);
+        } else {
+          drawingPath += ' L' + pos.x.toFixed(1) + ',' + pos.y.toFixed(1);
+          drawingPoints.push({x: pos.x, y: pos.y});
+          var dp = document.getElementById('drawingPreview');
+          if (dp) dp.setAttribute('d', drawingPath);
+        }
       }
       return;
     }
@@ -1207,8 +1273,18 @@
     if (draggingPanel) { draggingPanel = false; return; }
     if (drawingPath) {
       var dp = document.getElementById('drawingPreview');
-      var totalL = dp ? dp.getTotalLength() : drawingPath.length * 2;
-      highlighter.addMark(kfIdx, drawingPath, canetaThickness, totalL, corCanetaRGBA());
+      if (drawingPath === 'shape') {
+        if (dp) {
+          var shapeD = dp.getAttribute('d');
+          if (shapeD && shapeD !== 'M0,0') {
+            var totalL = dp.getTotalLength() || 100;
+            highlighter.addMark(kfIdx, shapeD, canetaThickness, totalL, corCanetaRGBA());
+          }
+        }
+      } else {
+        var totalL = dp ? dp.getTotalLength() : drawingPath.length * 2;
+        highlighter.addMark(kfIdx, drawingPath, canetaThickness, totalL, corCanetaRGBA());
+      }
       drawingPath = ''; drawingPoints = [];
       if (dp) dp.parentNode.removeChild(dp);
       $('penCursor').style.display = 'none';
@@ -1347,6 +1423,7 @@
         $('btnPen').style.background = '#4CAF50';
         $('btnPen').style.borderColor = '#388E3C';
         $('btnPen').style.color = '#fff';
+        setDrawingMode('freehand');
         entrarModoMarcacao();
         atualizarPenCursorColor();
       } else {
@@ -1391,6 +1468,10 @@
       }
       atualizarPenCursorColor();
     });
+
+    $('btnLine').addEventListener('click', function() { setDrawingMode('line'); });
+    $('btnEllipse').addEventListener('click', function() { setDrawingMode('ellipse'); });
+    $('btnRect').addEventListener('click', function() { setDrawingMode('rect'); });
 
     $('selResolucao').addEventListener('change', function() {
       resolucao = this.value;
