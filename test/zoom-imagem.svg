@@ -481,7 +481,7 @@
             form.append('video', webmBlob, 'video.webm');
 
             var xhrC = new XMLHttpRequest();
-            xhrC.open('POST', '/convert', true);
+            xhrC.open('POST', '/convert?res=' + resolucao, true);
             xhrC.responseType = 'blob';
             xhrC.timeout = 120000;
             xhrC.onload = function() {
