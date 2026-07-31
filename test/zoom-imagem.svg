@@ -36,8 +36,8 @@
 
   <rect id="overlayMouse" x="0" y="0" width="800" height="500" fill="none" pointer-events="visible" />
 
-  <rect id="statusBg" x="0" y="0" width="800" height="28" fill="rgba(0,0,0,0.55)" />
-  <text id="statusText" x="400" y="19" font-family="Arial, sans-serif" font-size="13" fill="white" text-anchor="middle">Pressione ▶ PLAY para iniciar a animação</text>
+  <rect id="statusBg" x="0" y="0" width="800" height="42" fill="rgba(0,0,0,0.55)" />
+  <text id="statusText" x="290" y="33" font-family="Arial, sans-serif" font-size="11" fill="#ccc" text-anchor="start">Pressione ▶ PLAY</text>
 
   <g id="btnUpload" cursor="pointer">
     <rect x="6" y="3" width="40" height="22" rx="4" fill="#2196F3" stroke="#1976D2" stroke-width="1.5" />
