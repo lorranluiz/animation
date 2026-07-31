@@ -79,7 +79,9 @@
     var kfIdx = 0;
     var rodando = false, modoExibicao = false;
     var zoomEnabled = true, blurEnabled = true, rotEnabled = true, translEnabled = true;
-    var duracaoMax = 10;
+    var timeline = new SVGAnim.Timeline({
+      duracao: 10, keyframes: keyframes, durLabel: durLabel, progressBar: progressBar
+    });
     var inicioTimestamp = null;
     var pausadoMs = 0;
 
@@ -97,15 +99,10 @@
 
     function g(id) { return document.getElementById(id); }
 
-    function kfToScreenX(tempo) {
-      var maxT = Math.max(keyframes[keyframes.length-1].tempo, duracaoMax);
-      return T_BAR_X + (tempo / Math.max(maxT, 1)) * T_BAR_W;
-    }
-
     /* ====== DOM DO KEYFRAME ====== */
 
     function criarKeyframeDOM(i) {
-      var kf = keyframes[i], px = kfToScreenX(kf.tempo);
+      var kf = keyframes[i], px = timeline.kfToScreenX(kf.tempo);
       px = Math.max(T_BAR_X, Math.min(T_BAR_X + T_BAR_W, px));
       var sel = (i === kfIdx);
 
@@ -184,7 +181,7 @@
       while (kfContainer.firstChild) kfContainer.removeChild(kfContainer.firstChild);
       while (kfLabelContainer.firstChild) kfLabelContainer.removeChild(kfLabelContainer.firstChild);
       for (var i = 0; i < keyframes.length; i++) criarKeyframeDOM(i);
-      durLabel.textContent = 'Duração máx: ' + duracaoMax + 's | KFs: ' + keyframes.length;
+      timeline.syncDuracaoSlider(g('duracaoSlide'), g('lblDuracao'));
     }
 
     /* ====== LEITURA / APLICAÇÃO DE SLIDERS ====== */
@@ -202,9 +199,9 @@
       blurEnabled = g('chkBlur') ? g('chkBlur').checked : true;
       rotEnabled = g('chkRot') ? g('chkRot').checked : true;
       translEnabled = g('chkTransl') ? g('chkTransl').checked : true;
-      duracaoMax = (el = g('duracaoSlide')) ? parseInt(el.value) : 10;
+      timeline.setDuracao((el = g('duracaoSlide')) ? parseInt(el.value) : 10);
       for (var i = 1; i < keyframes.length; i++) {
-        if (keyframes[i].tempo > duracaoMax) keyframes[i].tempo = duracaoMax;
+        if (keyframes[i].tempo > timeline.duracao) keyframes[i].tempo = timeline.duracao;
         if (keyframes[i].tempo <= keyframes[i-1].tempo) keyframes[i].tempo = keyframes[i-1].tempo + 0.5;
       }
       aplicarValoresAtuais();
@@ -237,6 +234,7 @@
       if ((el = g('rollSlide'))) g('lblRoll').textContent = el.value;
       if ((el = g('txSlide'))) g('lblTx').textContent = el.value;
       if ((el = g('tySlide'))) g('lblTy').textContent = el.value;
+      timeline.syncDuracaoSlider(g('duracaoSlide'), g('lblDuracao'));
     }
 
     function carregarSlidersDoKeyframe(kf) {
@@ -258,12 +256,9 @@
       pausadoMs = 0;
       carregarSlidersDoKeyframe(keyframes[kfIdx]);
       atualizarSelecaoKeyframes();
-      for (var j = 0; j < keyframes.length; j++) {
-        moverKeyframeDOM(j, kfToScreenX(keyframes[j].tempo));
-        var lbl = g('kf-lbl-' + j); if (lbl) lbl.textContent = (j===0 ? '0.0s' : keyframes[j].tempo.toFixed(1) + 's');
-      }
+      reposicionarTodosDots();
       aplicarValoresAtuais();
-      durLabel.textContent = 'Duração máx: ' + duracaoMax + 's | KFs: ' + keyframes.length;
+      timeline.syncDuracaoSlider(g('duracaoSlide'), g('lblDuracao'));
     }
 
     function addKeyframe() {
@@ -333,7 +328,7 @@
       atualizarStatus();
 
       var prog = t / last.tempo;
-      var ultX = kfToScreenX(last.tempo);
+      var ultX = timeline.kfToScreenX(last.tempo);
       progressBar.setAttribute('width', Math.max(0, Math.min(ultX - T_BAR_X, (ultX - T_BAR_X) * prog)));
 
       if (t < last.tempo) {
@@ -379,7 +374,7 @@
         new KF({ tempo: 0, zoom: 1.0, blur: 7, rotationX: -25, rotationY: 15 }),
         new KF({ tempo: 5, zoom: 1.5, blur: 0, rotationX: 0, rotationY: 0 })
       ];
-      duracaoMax = 10; g('duracaoSlide').value = 10;
+      timeline.setDuracao(10); g('duracaoSlide').value = 10;
       zoomEnabled = true; blurEnabled = true; rotEnabled = true; translEnabled = true;
       g('chkZoom').checked = true; g('chkBlur').checked = true; g('chkRot').checked = true; g('chkTransl').checked = true;
       imagem.setAttribute('href', IMAGEM);
@@ -421,13 +416,13 @@
       if (draggingKF && !rodando) {
         var rect = H.get('svgRaiz').getBoundingClientRect();
         var scale = 800 / rect.width, dx = (e.clientX - dragAnchorX) * scale;
-        var raw = dragAnchorTime + (dx / T_BAR_W) * Math.max(keyframes[keyframes.length-1].tempo, duracaoMax);
-        raw = Math.max(0.5, Math.min(duracaoMax, raw));
-        var next = (dragKFIndex + 1 < keyframes.length) ? keyframes[dragKFIndex+1].tempo : duracaoMax;
+        var raw = dragAnchorTime + (dx / T_BAR_W) * Math.max(keyframes[keyframes.length-1].tempo, timeline.duracao);
+        raw = Math.max(0.5, Math.min(timeline.duracao, raw));
+        var next = (dragKFIndex + 1 < keyframes.length) ? keyframes[dragKFIndex+1].tempo : timeline.duracao;
         var prev = keyframes[dragKFIndex-1].tempo;
         raw = Math.max(prev + 0.5, Math.min(next - 0.1, raw));
         keyframes[dragKFIndex].tempo = raw;
-        moverKeyframeDOM(dragKFIndex, kfToScreenX(raw));
+        moverKeyframeDOM(dragKFIndex, timeline.kfToScreenX(raw));
         var lbl = g('kf-lbl-' + dragKFIndex); if (lbl) lbl.textContent = raw.toFixed(1) + 's';
         aplicarValoresAtuais(); return;
       }
@@ -455,7 +450,7 @@
 
     function salvarEstado() {
       try {
-        var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, duracaoMax: duracaoMax,
+        var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, duracao: timeline.duracao,
           zoomEnabled: zoomEnabled, blurEnabled: blurEnabled, rotEnabled: rotEnabled, translEnabled: translEnabled, kfs: [] };
         for (var i = 0; i < keyframes.length; i++) {
           var k = keyframes[i];
@@ -472,7 +467,7 @@
         var st = JSON.parse(json);
         if (st.imagem) imagem.setAttribute('href', st.imagem);
         if (st.modoExibicao !== undefined) { modoExibicao = st.modoExibicao; g('modoExibCheck').textContent = modoExibicao ? '\u2713' : ''; }
-        if (st.duracaoMax !== undefined) { duracaoMax = st.duracaoMax; g('duracaoSlide').value = duracaoMax; }
+        if (st.duracao !== undefined) { timeline.duracao = st.duracao; g('duracaoSlide').value = timeline.duracao; }
         if (st.zoomEnabled !== undefined) zoomEnabled = st.zoomEnabled;
         if (st.blurEnabled !== undefined) blurEnabled = st.blurEnabled;
         if (st.rotEnabled !== undefined) rotEnabled = st.rotEnabled;
@@ -484,10 +479,17 @@
       } catch(e) {}
     }
 
+    function reposicionarTodosDots() {
+      for (var j = 0; j < keyframes.length; j++) {
+        moverKeyframeDOM(j, timeline.kfToScreenX(keyframes[j].tempo));
+        var lbl = g('kf-lbl-' + j); if (lbl) lbl.textContent = (j===0 ? '0.0s' : keyframes[j].tempo.toFixed(1) + 's');
+      }
+    }
+
     function setupSliderListeners() {
       var sls = document.querySelectorAll('input[type=range], input[type=checkbox]');
       for (var i = 0; i < sls.length; i++) {
-        sls[i].addEventListener('input', function() { lerSliders(); atualizarSliderLabels(); atualizarSelecaoKeyframes(); salvarEstado(); });
+        sls[i].addEventListener('input', function() { lerSliders(); atualizarSliderLabels(); atualizarSelecaoKeyframes(); reposicionarTodosDots(); salvarEstado(); });
       }
       g('btnAddKF').addEventListener('click', addKeyframe);
       g('btnDelKF').addEventListener('click', removeKeyframe);

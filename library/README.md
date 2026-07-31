@@ -558,6 +558,60 @@ ui.setValue('massaInput', 2.0);
 
 ---
 
+### 11. `SVGAnim.Keyframe` — Unidade de Keyframe
+
+Armazena um instante na timeline e todos os valores dos efeitos da câmera (zoom, blur, rotação, translação, perspectiva).
+
+```javascript
+var kf = new SVGAnim.Keyframe({
+  tempo: 0,               // Instante na timeline (segundos)
+  zoom: 1.0,              // Valor do zoom
+  blur: 7,                // Valor do blur (stdDeviation)
+  rotationX: -25,         // Pitch (graus)
+  rotationY: 15,          // Yaw (graus)
+  rotationZ: 0,           // Roll (graus)
+  tx: 0, ty: 0,           // Translação (pixels)
+  perspective: 800        // Distância da perspectiva
+});
+```
+
+| Método | Descrição |
+|---|---|
+| `clone()` | Retorna cópia profunda |
+| `lerp(other, t)` | Interpola linear entre `this` (t=0) e `other` (t=1) |
+
+```javascript
+var kf1 = new SVGAnim.Keyframe({ tempo: 0, zoom: 1.0 });
+var kf2 = new SVGAnim.Keyframe({ tempo: 5, zoom: 1.5 });
+var meio = kf1.lerp(kf2, 0.5); // interpola no meio do caminho
+```
+
+---
+
+### 12. `SVGAnim.Timeline` — Linha do Tempo
+
+Encapsula a duração máxima da timeline e as conversões entre tempo (segundos) e posição na barra (pixels).
+
+```javascript
+var tl = new SVGAnim.Timeline({
+  duracao: 10,              // Duração máxima (segundos)
+  keyframes: keyframes,     // Array de Keyframe
+  durLabel: document.getElementById('durLabel'),
+  progressBar: document.getElementById('progressBar')
+});
+```
+
+| Método | Descrição |
+|---|---|
+| `getMinDuracao()` | Tempo do último keyframe (duração mínima) |
+| `maxTempo()` | `Math.max(minDuracao, duracao)` |
+| `kfToScreenX(tempo)` | Converte instante (s) → posição X na barra (px) |
+| `validarDuracao()` | Garante `duracao >= minDuracao` |
+| `syncDuracaoSlider(sliderEl, lblVal)` | Sincroniza slider HTML com estado atual |
+| `setDuracao(d)` | Define duração com validação |
+
+---
+
 ## Exemplo Completo
 
 Veja `test/simulacao-teste.svg` para um exemplo funcional completo que reproduz a simulação de lançamento de projétil com:

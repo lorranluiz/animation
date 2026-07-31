@@ -1083,6 +1083,54 @@ var SVGAnim = (function () {
   };
 
   // ========================================================================
+  // Timeline - Linha do tempo
+  // ========================================================================
+
+  function Timeline(config) {
+    config = config || {};
+    this.duracao = config.duracao !== undefined ? config.duracao : 10;
+    this.keyframes = config.keyframes || [];
+    this.durLabel = config.durLabel || null;
+    this.progressBar = config.progressBar || null;
+    this.T_BAR_X = 40;
+    this.T_BAR_W = 720;
+  }
+
+  Timeline.prototype.getMinDuracao = function () {
+    if (this.keyframes.length === 0) return 0;
+    return this.keyframes[this.keyframes.length - 1].tempo;
+  };
+
+  Timeline.prototype.maxTempo = function () {
+    return Math.max(this.getMinDuracao(), this.duracao);
+  };
+
+  Timeline.prototype.kfToScreenX = function (tempo) {
+    var max = this.maxTempo();
+    return this.T_BAR_X + (tempo / Math.max(max, 1)) * this.T_BAR_W;
+  };
+
+  Timeline.prototype.validarDuracao = function () {
+    var min = this.getMinDuracao();
+    if (this.duracao < min) this.duracao = min;
+  };
+
+  Timeline.prototype.syncDuracaoSlider = function (sliderEl, lblVal) {
+    if (!sliderEl) return;
+    var minDur = this.getMinDuracao();
+    sliderEl.min = minDur;
+    var val = parseInt(sliderEl.value);
+    if (val < minDur) { sliderEl.value = minDur; val = minDur; }
+    if (lblVal) lblVal.textContent = val + 's';
+    if (this.durLabel) this.durLabel.textContent = 'Duração máx: ' + this.duracao + 's | KFs: ' + this.keyframes.length;
+  };
+
+  Timeline.prototype.setDuracao = function (d) {
+    this.duracao = d;
+    this.validarDuracao();
+  };
+
+  // ========================================================================
   // API Pública
   // ========================================================================
 
@@ -1098,7 +1146,8 @@ var SVGAnim = (function () {
     VerticalRuler: VerticalRuler,
     InputManager: InputManager,
     UIManager: UIManager,
-    Keyframe: Keyframe
+    Keyframe: Keyframe,
+    Timeline: Timeline
   };
 
 })();
