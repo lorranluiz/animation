@@ -17,6 +17,9 @@
     <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" />
   </g>
 
+  <!-- Overlay transparente para capturar eventos de mouse na imagem -->
+  <rect id="overlayMouse" x="0" y="0" width="800" height="500" fill="none" pointer-events="visible" />
+
   <g id="toolbars">
 
   <!-- Barra de status no topo -->
@@ -540,6 +543,59 @@
         event.preventDefault();
         iniciar();
       }
+    });
+
+    var arrastando = false;
+    var mouseIniX = 0;
+    var mouseIniY = 0;
+    var txAnchor = 0;
+    var tyAnchor = 0;
+
+    H.get('overlayMouse').addEventListener('mousedown', function(e) {
+      if (rodando) return;
+      arrastando = true;
+      mouseIniX = e.clientX;
+      mouseIniY = e.clientY;
+      lerSliders();
+      txAnchor = (kfSelecionado === 1) ? txIni : targetTx;
+      tyAnchor = (kfSelecionado === 1) ? tyIni : targetTy;
+    });
+
+    window.addEventListener('mousemove', function(e) {
+      if (!arrastando || rodando) return;
+      var dx = e.clientX - mouseIniX;
+      var dy = e.clientY - mouseIniY;
+      var novoTx = Math.round(Math.max(-300, Math.min(300, txAnchor + dx)));
+      var novoTy = Math.round(Math.max(-300, Math.min(300, tyAnchor + dy)));
+      var txId = (kfSelecionado === 1) ? 'translTxIniSlide' : 'translTxFimSlide';
+      var tyId = (kfSelecionado === 1) ? 'translTyIniSlide' : 'translTyFimSlide';
+      g(txId).value = novoTx;
+      g(tyId).value = novoTy;
+      lerSliders();
+      atualizarLabelsSliders();
+      atualizarKFInfo();
+      aplicarValoresAtuais();
+      salvarEstado();
+    });
+
+    window.addEventListener('mouseup', function(e) {
+      arrastando = false;
+    });
+
+    H.get('overlayMouse').addEventListener('wheel', function(e) {
+      if (rodando || !e.ctrlKey) return;
+      e.preventDefault();
+      lerSliders();
+      var zoomId = (kfSelecionado === 1) ? 'zoomIniSlide' : 'zoomFimSlide';
+      var zoomAtual = parseInt(g(zoomId).value);
+      var delta = e.deltaY < 0 ? 1 : -1;
+      var novo = Math.max(10, Math.min(30, zoomAtual + delta));
+      g(zoomId).value = novo;
+      lerSliders();
+      atualizarLabelsSliders();
+      atualizarKFInfo();
+      aplicarValoresAtuais();
+      salvarEstado();
     });
 
     function setupSliderListeners() {
