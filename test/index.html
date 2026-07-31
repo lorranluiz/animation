@@ -70,18 +70,22 @@
 
   #statusBar {
     position:absolute; top:0; left:0;
-    width:800px; height:42px;
+    width:100%; height:42px;
     display:flex; align-items:center; gap:4px;
     padding:4px 6px;
     background:rgba(0,0,0,0.55);
     z-index:10;
     pointer-events:auto;
   }
+  #statusBar.marking-mode {
+    cursor:ns-resize;
+  }
   #statusText {
     flex:1;
     font-family:Arial,sans-serif; font-size:11px; color:#ccc;
     margin-left:220px;
   }
+  .marking-hidden { display:none !important; }
 
   .toolBtn {
     width:40px; height:22px; border-radius:4px; border:1.5px solid;
@@ -101,12 +105,14 @@
     position:absolute; top:323px; left:0;
     width:800px; height:90px;
     pointer-events:auto;
+    z-index:15;
   }
 
   #controlsPanel {
     position:absolute; top:390px; left:0;
     width:800px;
     pointer-events:auto;
+    z-index:20;
   }
   #controlsPanel .row { display:flex; align-items:center; margin-bottom:3px; gap:4px; }
   #controlsPanel label { white-space:nowrap; cursor:pointer; }
@@ -155,7 +161,7 @@
 
     <svg id="highlightsSvg" viewBox="0 0 800 500">
       <clipPath id="viewBoxClip"><rect x="0" y="0" width="800" height="500"/></clipPath>
-      <g id="highlightsLayer" clip-path="url(#viewBoxClip)"></g>
+      <g id="highlightsLayer"></g>
     </svg>
 
     <div id="lbTop" class="letterbox"></div>
@@ -176,6 +182,16 @@
       <button id="btnSave" class="toolBtn" title="Salvar projeto">&#128190;</button>
       <button id="btnPen" class="toolBtn" title="Caneta">&#128395;</button>
       <button id="btnEraser" class="toolBtn" title="Borracha">&#129534;</button>
+      <div id="penRow" class="row" style="display:none">
+        <span class="lbl">Esp.</span>
+        <input type="range" id="penThickness" min="1" max="20" value="5" step="0.5">
+        <span class="val" id="lblPenThickness">5</span>
+        <span class="lbl">Cor</span>
+        <input type="color" id="penColor" value="#FFFF00" style="width:24px;height:18px;padding:0;border:none;cursor:pointer;">
+        <span class="lbl">Opac.</span>
+        <input type="range" id="penOpacity" min="5" max="100" value="40" step="5">
+        <span class="val" id="lblPenOpacity">0.40</span>
+      </div>
       <button id="btnRecord" class="toolBtn" title="Gravar"><span id="recordLabel">&#9679;</span></button>
       <button id="btnReset" class="toolBtn" title="Reset">&#128465;</button>
       <span id="statusText">Pressione ▶ PLAY</span>
@@ -244,18 +260,6 @@
           <span style="min-width:4px"></span>
           <button id="btnAddKF">+ KF</button>
           <button id="btnDelKF">− KF</button>
-        </div>
-
-        <div id="penRow" class="row" style="display:none">
-          <span style="color:#FFD700;min-width:20px;">&#128395;</span>
-          <span class="lbl">Esp.</span>
-          <input type="range" id="penThickness" min="1" max="20" value="5" step="0.5">
-          <span class="val" id="lblPenThickness">5</span>
-          <span class="lbl">Cor</span>
-          <input type="color" id="penColor" value="#FFFF00" style="width:24px;height:18px;padding:0;border:none;cursor:pointer;">
-          <span class="lbl">Opac.</span>
-          <input type="range" id="penOpacity" min="5" max="100" value="40" step="5">
-          <span class="val" id="lblPenOpacity">0.40</span>
         </div>
       </div>
     </div>
@@ -342,6 +346,8 @@
   var cameraSaved = null;
   var restaurando = false;
 
+  var _vpState = null;
+
   function entrarModoMarcacao() {
     if (marcacaoAtiva) return;
     marcacaoAtiva = true;
@@ -350,20 +356,149 @@
       rotationX: camera.rotationX, rotationY: camera.rotationY, rotationZ: camera.rotationZ,
       tx: camera.tx, ty: camera.ty, perspective: camera.perspective
     };
-    camera.zoom = 1; camera.blur = 0; camera.tx = 0; camera.ty = 0;
+
+    var fitZoom = window.innerWidth / IMG_W;
+    camera.zoom = fitZoom;
+    camera.blur = 0; camera.tx = 0; camera.ty = 0;
     camera.rotationX = 0; camera.rotationY = 0; camera.rotationZ = 0;
+
     blurWrapper.style.filter = 'blur(0px)';
+    blurWrapper.style.cursor = 'crosshair';
+    blurWrapper.classList.remove('grabbing');
+
+    _vpState = {
+      transform: viewport.style.transform, width: viewport.style.width, height: viewport.style.height,
+      overflow: viewport.style.overflow, marginLeft: viewport.style.marginLeft,
+      marginTop: viewport.style.marginTop, top: viewport.style.top, left: viewport.style.left,
+      blurPos: blurWrapper.style.position, blurW: blurWrapper.style.width, blurH: blurWrapper.style.height,
+      sbParent: $('statusBar').parentNode, sbNext: $('statusBar').nextSibling,
+      hlParent: $('highlightsSvg').parentNode, hlNext: $('highlightsSvg').nextSibling
+    };
+
+    viewport.style.transform = 'scale(1)';
+    viewport.style.width = '100vw';
+    viewport.style.height = '100vh';
+    viewport.style.overflow = 'scroll';
+    viewport.style.marginLeft = '0px';
+    viewport.style.marginTop = '0px';
+    viewport.style.top = '0';
+    viewport.style.left = '0';
+
+    document.body.appendChild($('statusBar'));
+    $('statusBar').style.position = 'fixed';
+    $('statusBar').style.top = '0';
+    $('statusBar').style.left = '0';
+    $('statusBar').style.width = '100%';
+
+    blurWrapper.appendChild($('highlightsSvg'));
+    $('highlightsSvg').style.position = 'absolute';
+    $('highlightsSvg').style.top = '0';
+    $('highlightsSvg').style.left = '0';
+    $('highlightsSvg').style.pointerEvents = 'none';
+
+    blurWrapper.style.position = 'relative';
+    blurWrapper.style.width = (IMG_W * fitZoom) + 'px';
+    blurWrapper.style.height = (IMG_H * fitZoom) + 'px';
+
+    $('highlightsSvg').setAttribute('viewBox', '0 0 ' + IMG_W + ' ' + IMG_H);
+    $('highlightsSvg').style.width = (IMG_W * fitZoom) + 'px';
+    $('highlightsSvg').style.height = (IMG_H * fitZoom) + 'px';
+    var clipRect = document.querySelector('#viewBoxClip rect');
+    if (clipRect) { clipRect.setAttribute('width', IMG_W); clipRect.setAttribute('height', IMG_H); }
+
+    stage.style.width = (IMG_W * fitZoom) + 'px';
+    stage.style.height = (IMG_H * fitZoom) + 'px';
+    imagem.style.width = (IMG_W * fitZoom) + 'px';
+    imagem.style.height = (IMG_H * fitZoom) + 'px';
+
+    $('controlsPanel').style.display = 'none';
+    $('timelineSvg').style.display = 'none';
+    $('modoExibicao').style.display = 'none';
+    $('panelHandle').style.display = 'none';
+
+    ['btnUpload','btnOpen','btnPlay','btnSave','btnRecord','btnReset','statusText'].forEach(function(id) {
+      var el = $(id); if (el) el.classList.add('marking-hidden');
+    });
+    $('penRow').style.display = 'flex';
+    $('statusBar').classList.add('marking-mode');
+
+    ['lbTop','lbBot','lbLeft','lbRight','guideTop','guideBot','guideLeft','guideRight'].forEach(function(id) {
+      var el = $(id); if (el) el.style.display = 'none';
+    });
+
+    $('penCursor').style.display = 'block';
     applyTransform();
     updateHighlights(keyframes[kfIdx].tempo);
-    $('panelHandle').style.display = 'block';
-    $('penCursor').style.display = 'block';
   }
 
   function sairModoMarcacao() {
     if (!marcacaoAtiva || !cameraSaved) return;
     marcacaoAtiva = false;
+
+    if (_vpState) {
+      viewport.style.transform = _vpState.transform;
+      viewport.style.width = _vpState.width;
+      viewport.style.height = _vpState.height;
+      viewport.style.overflow = _vpState.overflow;
+      viewport.style.marginLeft = _vpState.marginLeft;
+      viewport.style.marginTop = _vpState.marginTop;
+      viewport.style.top = _vpState.top;
+      viewport.style.left = _vpState.left;
+      blurWrapper.style.position = _vpState.blurPos || 'absolute';
+      blurWrapper.style.width = _vpState.blurW || '800px';
+      blurWrapper.style.height = _vpState.blurH || '500px';
+      if (_vpState.sbParent) {
+        if (_vpState.sbNext) {
+          _vpState.sbParent.insertBefore($('statusBar'), _vpState.sbNext);
+        } else {
+          _vpState.sbParent.appendChild($('statusBar'));
+        }
+      }
+      if (_vpState.hlParent) {
+        if (_vpState.hlNext) {
+          _vpState.hlParent.insertBefore($('highlightsSvg'), _vpState.hlNext);
+        } else {
+          _vpState.hlParent.appendChild($('highlightsSvg'));
+        }
+      }
+      $('statusBar').style.position = 'absolute';
+      $('statusBar').style.top = '0';
+      $('statusBar').style.left = '0';
+      $('statusBar').style.width = '100%';
+      _vpState = null;
+    }
+
+    $('highlightsSvg').setAttribute('viewBox', '0 0 800 500');
+    $('highlightsSvg').style.width = '800px';
+    $('highlightsSvg').style.height = '500px';
+    $('highlightsSvg').style.position = 'absolute';
+    $('highlightsSvg').style.top = '0';
+    $('highlightsSvg').style.left = '0';
+    var clipRect = document.querySelector('#viewBoxClip rect');
+    if (clipRect) { clipRect.setAttribute('width', 800); clipRect.setAttribute('height', 500); }
+    stage.style.width = IMG_W + 'px';
+    stage.style.height = IMG_H + 'px';
+    imagem.style.width = IMG_W + 'px';
+    imagem.style.height = IMG_H + 'px';
+
+    $('controlsPanel').style.display = 'block';
+    $('timelineSvg').style.display = 'block';
+    $('modoExibicao').style.display = 'flex';
     $('panelHandle').style.display = 'none';
+
+    ['btnUpload','btnOpen','btnPlay','btnSave','btnRecord','btnReset','statusText'].forEach(function(id) {
+      var el = $(id); if (el) el.classList.remove('marking-hidden');
+    });
+    $('penRow').style.display = 'none';
+    $('statusBar').classList.remove('marking-mode');
+
+    ['lbTop','lbBot','lbLeft','lbRight','guideTop','guideBot','guideLeft','guideRight'].forEach(function(id) {
+      var el = $(id); if (el) el.style.display = '';
+    });
+
     $('penCursor').style.display = 'none';
+    blurWrapper.style.cursor = 'grab';
+
     camera.zoom = cameraSaved.zoom; camera.blur = cameraSaved.blur;
     camera.tx = cameraSaved.tx; camera.ty = cameraSaved.ty;
     camera.rotationX = cameraSaved.rotationX; camera.rotationY = cameraSaved.rotationY; camera.rotationZ = cameraSaved.rotationZ;
@@ -420,6 +555,7 @@
   var pausadoMs = 0;
 
   function aplicarLetterbox(opac) {
+    if (marcacaoAtiva) return;
     if (opac === undefined) opac = rodando ? 1 : 0.4;
     var guideOp = opac === 1 ? 'none' : 'block';
 
@@ -767,7 +903,7 @@
 
   function iniciar() {
     if (rodando) { pausar(); return; }
-    if (marcacaoAtiva) { canetaAtiva = false; sairModoMarcacao(); $('penRow').style.display = 'none'; }
+    if (marcacaoAtiva) { canetaAtiva = false; sairModoMarcacao(); }
     if (keyframes.length < 2) return;
     if (pausadoMs === 0) {
       lerSliders();
@@ -777,7 +913,6 @@
     }
     if (modoExibicao) {
       $('statusBar').style.display = 'none';
-      $('highlightsSvg').style.display = 'none';
       $('timelineSvg').style.display = 'none';
       $('controlsPanel').style.display = 'none';
     }
@@ -933,6 +1068,13 @@
 
   function clientToViewport(clientX, clientY) {
     var rect = viewport.getBoundingClientRect();
+    if (marcacaoAtiva) {
+      var fz = camera.zoom;
+      return {
+        x: (clientX - rect.left + viewport.scrollLeft) / fz,
+        y: (clientY - rect.top + viewport.scrollTop) / fz
+      };
+    }
     return {
       x: (clientX - rect.left) * (800 / rect.width),
       y: (clientY - rect.top) * (500 / rect.height)
@@ -951,7 +1093,9 @@
         lerSliders(); txAnchor = keyframes[kfIdx].tx; tyAnchor = keyframes[kfIdx].ty;
         return;
       }
-      if (pos.x < 0 || pos.x > 800 || pos.y < 0 || pos.y > 500) return;
+      var maxX = marcacaoAtiva ? IMG_W : 800;
+      var maxY = marcacaoAtiva ? IMG_H : 500;
+      if (pos.x < 0 || pos.x > maxX || pos.y < 0 || pos.y > maxY) return;
       if (modoBorracha) {
         var marks = highlighter.getMarks(kfIdx);
         var hit = -1, distThreshold = 8;
@@ -994,13 +1138,19 @@
   window.addEventListener('mousemove', function(e) {
     if (draggingPanel) {
       var dy = e.clientY - panelAnchorY;
-      var cp = $('controlsPanel'), tl = $('timelineSvg'), ph = $('panelHandle');
-      if (cp && tl && ph) {
-        var cpTop = parseInt(cp.style.top) || 390;
-        var newTop = Math.max(10, Math.min(480, cpTop + dy));
-        cp.style.top = newTop + 'px';
-        tl.style.top = (newTop - 67) + 'px';
-        ph.style.top = (newTop - 82) + 'px';
+      if (marcacaoAtiva) {
+        var sb = $('statusBar');
+        var newTop = Math.max(0, (parseInt(sb.style.top) || 0) + dy);
+        sb.style.top = newTop + 'px';
+      } else {
+        var cp = $('controlsPanel'), tl = $('timelineSvg'), ph = $('panelHandle');
+        if (cp && tl && ph) {
+          var cpTop = parseInt(cp.style.top) || 390;
+          var newTop = Math.max(10, Math.min(480, cpTop + dy));
+          cp.style.top = newTop + 'px';
+          tl.style.top = (newTop - 67) + 'px';
+          ph.style.top = (newTop - 82) + 'px';
+        }
       }
       panelAnchorY = e.clientY;
       return;
@@ -1009,10 +1159,18 @@
     if (canetaAtiva && !rodando) {
       var pos = clientToViewport(e.clientX, e.clientY);
       var pc = $('penCursor');
-      pc.style.left = pos.x + 'px';
-      pc.style.top = pos.y + 'px';
-      pc.style.display = (pos.x >= 0 && pos.x <= 800 && pos.y >= 0 && pos.y <= 500) ? 'block' : 'none';
-      if (drawingPath && pos.x >= 0 && pos.x <= 800 && pos.y >= 0 && pos.y <= 500) {
+      if (marcacaoAtiva) {
+        var rect = viewport.getBoundingClientRect();
+        pc.style.left = (e.clientX - rect.left) + 'px';
+        pc.style.top = (e.clientY - rect.top) + 'px';
+      } else {
+        pc.style.left = pos.x + 'px';
+        pc.style.top = pos.y + 'px';
+      }
+      var maxX = marcacaoAtiva ? IMG_W : 800;
+      var maxY = marcacaoAtiva ? IMG_H : 500;
+      pc.style.display = (pos.x >= 0 && pos.x <= maxX && pos.y >= 0 && pos.y <= maxY) ? 'block' : 'none';
+      if (drawingPath && pos.x >= 0 && pos.x <= maxX && pos.y >= 0 && pos.y <= maxY) {
         drawingPath += ' L' + pos.x.toFixed(1) + ',' + pos.y.toFixed(1);
         drawingPoints.push({x: pos.x, y: pos.y});
         var dp = document.getElementById('drawingPreview');
@@ -1071,6 +1229,12 @@
   }, { passive: false });
 
   function applyTransform() {
+    if (marcacaoAtiva) {
+      stage.style.transform = '';
+      imagem.style.transform = '';
+      $('highlightsLayer').style.transform = '';
+      return;
+    }
     var baseP = Math.max(IMG_W, IMG_H) * 1.6;
     var P = Math.max(100, baseP - Math.abs(camera.rotationX) / 90 * baseP * 0.75);
     var hw = IMG_W / 2, hh = IMG_H / 2;
@@ -1094,7 +1258,8 @@
       'translate(400px,250px) ' +
       'rotate(' + camera.rotationZ.toFixed(2) + 'deg) ' +
       'scale(' + camera.zoom + ') ' +
-      'translate(' + camera.tx.toFixed(2) + 'px,' + camera.ty.toFixed(2) + 'px)';
+      'translate(' + camera.tx.toFixed(2) + 'px,' + camera.ty.toFixed(2) + 'px) ' +
+      'translate(' + (-hw).toFixed(2) + 'px,' + (-hh).toFixed(2) + 'px)';
     hl.style.transformOrigin = '0 0';
   }
 
@@ -1158,11 +1323,19 @@
     $('btnAddKF').addEventListener('click', addKeyframe);
     $('btnDelKF').addEventListener('click', removeKeyframe);
 
-    $('panelHandle').addEventListener('mousedown', function(e) {
-      e.preventDefault(); e.stopPropagation();
-      draggingPanel = true;
-      panelAnchorY = e.clientY;
-    });
+  $('panelHandle').addEventListener('mousedown', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    draggingPanel = true;
+    panelAnchorY = e.clientY;
+  });
+
+  $('statusBar').addEventListener('mousedown', function(e) {
+    if (!marcacaoAtiva) return;
+    if (e.target.closest('button, input, label')) return;
+    e.preventDefault();
+    draggingPanel = true;
+    panelAnchorY = e.clientY;
+  });
 
     $('btnPen').addEventListener('click', function() {
       canetaAtiva = !canetaAtiva;
@@ -1182,7 +1355,7 @@
         $('btnPen').style.color = '#ccc';
         sairModoMarcacao();
       }
-      $('penRow').style.display = canetaAtiva ? 'flex' : 'none';
+      atualizarPenCursorColor();
     });
 
     $('penThickness').addEventListener('input', function() {
@@ -1275,6 +1448,8 @@
     if (e.code === 'ArrowRight') { e.preventDefault(); if (!rodando) { if (kfIdx < keyframes.length - 1) selecionarKF(kfIdx + 1); } }
     if (e.code === 'Space') { e.preventDefault(); iniciar(); }
     if (e.code === 'Tab') { e.preventDefault(); if (marcacaoAtiva && !modoBorracha) toggleCamadas(); }
+    if (e.code === 'Escape') { e.preventDefault(); if (marcacaoAtiva) { canetaAtiva = false; sairModoMarcacao(); } }
+    if (e.code === 'KeyC') { e.preventDefault(); if (!rodando) $('btnPen').click(); }
   });
 
   applyTransform();
