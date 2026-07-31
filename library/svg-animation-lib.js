@@ -32,6 +32,22 @@ var SVGAnim = (function () {
 
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
+  /*
+   * Easing racional simétrico: f(0)=0, f(1)=1, f(0.5)=0.5, f'(0)=f'(1)=0.
+   *
+   * Curva:  t^a / (t^a + (1-t)^a)
+   *
+   * Propriedade: a velocidade máxima no centro (t=0.5) é igual a "a".
+   * Valores típicos do parâmetro EASING_A:
+   *
+   *   1.0   linear (sem easing)
+   *   1.5   ~smoothstep cúbico (3t² - 2t³)
+   *   2.0   centro pontiagudo moderado
+   *   3.0   centro bem acentuado
+   *   5.0   agressivo, quase todo movimento concentrado no meio
+   */
+  var EASING_A = 2.0;
+
   // ========================================================================
   // Helpers - Utilitários SVG
   // ========================================================================
@@ -92,7 +108,7 @@ var SVGAnim = (function () {
     },
 
     easeInOut: function (t) {
-      return -1.945 * t * t * t + 2.94 * t * t + 0.005 * t;
+      return Math.pow(t, EASING_A) / (Math.pow(t, EASING_A) + Math.pow(1 - t, EASING_A));
     },
 
     get: function (id) {
@@ -443,14 +459,17 @@ var SVGAnim = (function () {
   };
 
   Camera.prototype.getCameraTransform = function () {
-    return 'perspective(' + this.perspective + 'px) ' +
-           'rotateX(' + this.rotationX.toFixed(2) + 'deg) ' +
-           'rotateY(' + this.rotationY.toFixed(2) + 'deg) ' +
-           'rotateZ(' + this.rotationZ.toFixed(2) + 'deg) ' +
-           'translate(' + this.zoomCenterX + 'px,' + this.zoomCenterY + 'px) ' +
+    return 'translate(' + this.zoomCenterX + 'px,' + this.zoomCenterY + 'px) ' +
+           'rotate(' + this.rotationZ.toFixed(2) + 'deg) ' +
            'scale(' + this.zoom + ') ' +
-           'translate(' + (-this.zoomCenterX) + 'px,' + (-this.zoomCenterY) + 'px) ' +
-           'translate(' + this.tx.toFixed(2) + 'px,' + this.ty.toFixed(2) + 'px)';
+           'translate(' + (-this.zoomCenterX + this.tx).toFixed(2) + 'px,' + (-this.zoomCenterY + this.ty).toFixed(2) + 'px)';
+  };
+
+  Camera.prototype.getImage3DTransform = function () {
+    var P = Math.max(150, this.perspective - Math.abs(this.rotationX) * 7);
+    return 'perspective(' + P + 'px) ' +
+           'rotateX(' + this.rotationX.toFixed(2) + 'deg) ' +
+           'rotateY(' + this.rotationY.toFixed(2) + 'deg)';
   };
 
   Camera.prototype.reset = function () {

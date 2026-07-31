@@ -3,7 +3,7 @@
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
     svg { display: block; }
-    #camadaZoom { clip-path: url(#viewBoxClip); }
+    #svgRaiz { transform-style: preserve-3d; }
   </style>
   <defs>
     <clipPath id="viewBoxClip">
@@ -16,9 +16,15 @@
 
   <rect x="-2000" y="-2000" width="5000" height="5000" fill="#000" />
 
-  <g id="camadaZoom" filter="url(#cameraBlur)">
-    <image id="imgMapa" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" />
-    <g id="highlightsLayer" clip-path="url(#viewBoxClip)"></g>
+  <g id="camadaZoomWrapper" filter="url(#cameraBlur)">
+    <g id="camadaZoom">
+      <foreignObject id="imgContainer" x="0" y="0" width="800" height="500">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="width:800px;height:500px;">
+          <img id="imgMapa" src="../mapa brasil 1.jpg" style="width:100%;height:100%;object-fit:contain;display:block;" />
+        </div>
+      </foreignObject>
+      <g id="highlightsLayer" clip-path="url(#viewBoxClip)"></g>
+    </g>
   </g>
 
   <!-- Barras de letterbox (máscara de resolução + frame externo) -->
@@ -110,8 +116,7 @@
     var kfInfo = H.get('kfInfo');
     var kfContainer = H.get('kfContainer'), kfLabelContainer = H.get('kfLabelContainer');
     var durLabel = H.get('durLabel');
-
-    imagem.setAttribute('href', IMAGEM);
+    imagem.style.transformOrigin = '400px 250px';
 
     var camera = new SVGAnim.Camera({
       zoom: 1.0, blur: 7, blurFilterId: 'blurElem',
@@ -137,6 +142,12 @@
     var cameraSaved = null;
     var restaurando = false;
 
+    function aplicarTransformacao() {
+      camada.style.transform = camera.getCameraTransform();
+      camada.style.transformOrigin = '0 0';
+      imagem.style.transform = camera.getImage3DTransform();
+    }
+
     function entrarModoMarcacao() {
       if (marcacaoAtiva) return;
       marcacaoAtiva = true;
@@ -148,8 +159,7 @@
       camera.zoom = 1; camera.blur = 0; camera.tx = 0; camera.ty = 0;
       camera.rotationX = 0; camera.rotationY = 0; camera.rotationZ = 0;
       if (camera.blurFilterId) { var f = document.getElementById(camera.blurFilterId); if (f) f.setAttribute('stdDeviation', '0'); }
-      camada.style.transform = camera.getCameraTransform();
-      camada.style.transformOrigin = '0 0';
+      aplicarTransformacao();
       atualizarHighlights(keyframes[kfIdx].tempo);
       g('panelHandle').setAttribute('display', 'inline');
       H.get('overlayMouse').style.cursor = 'none';
@@ -168,8 +178,7 @@
       camera.perspective = cameraSaved.perspective;
       if (camera.blurFilterId) { var f = document.getElementById(camera.blurFilterId); if (f) f.setAttribute('stdDeviation', camera.blur); }
       cameraSaved = null;
-      camada.style.transform = camera.getCameraTransform();
-      camada.style.transformOrigin = '0 0';
+      aplicarTransformacao();
       aplicarKeyframeNaCamera(keyframes[kfIdx]);
       atualizarHighlights(keyframes[kfIdx].tempo);
       atualizarStatus();
@@ -394,8 +403,7 @@
       camera.rotationX = kf.rotationX; camera.rotationY = kf.rotationY; camera.rotationZ = kf.rotationZ;
       camera.tx = kf.tx; camera.ty = kf.ty; camera.perspective = kf.perspective;
       if (camera.blurFilterId) { var fe = document.getElementById(camera.blurFilterId); if (fe) fe.setAttribute('stdDeviation', camera.blur); }
-      camada.style.transform = camera.getCameraTransform();
-      camada.style.transformOrigin = '0 0';
+      aplicarTransformacao();
     }
 
     function aplicarValoresAtuais() { if (!rodando) { if (!marcacaoAtiva) aplicarKeyframeNaCamera(keyframes[kfIdx]); atualizarHighlights(keyframes[kfIdx].tempo); atualizarStatus(); } }
@@ -531,8 +539,7 @@
         }
       }
 
-      camada.style.transform = camera.getCameraTransform();
-      camada.style.transformOrigin = '0 0';
+      aplicarTransformacao();
       atualizarHighlights(t);
       atualizarStatus();
 
@@ -583,7 +590,7 @@
 
     H.get('btnSave').addEventListener('click', function() {
       lerSliders();
-      var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, resolucao: resolucao, duracao: timeline.duracao,
+      var state = { imagem: imagem.src, modoExibicao: modoExibicao, resolucao: resolucao, duracao: timeline.duracao,
         zoomEnabled: zoomEnabled, blurEnabled: blurEnabled, rotEnabled: rotEnabled, translEnabled: translEnabled, kfs: [],
         highlights: highlighter.toJSON() };
       for (var i = 0; i < keyframes.length; i++) {
@@ -634,7 +641,7 @@
       timeline.setDuracao(10); g('duracaoSlide').value = 10;
       zoomEnabled = true; blurEnabled = true; rotEnabled = true; translEnabled = true;
       g('chkZoom').checked = true; g('chkBlur').checked = true; g('chkRot').checked = true; g('chkTransl').checked = true;
-      imagem.setAttribute('href', IMAGEM);
+      imagem.src = IMAGEM;
       modoExibicao = false; g('modoExibCheck').textContent = '';
       kfIdx = 0;
       reconstruirTodosKeyframesDOM();
@@ -734,7 +741,7 @@
         var ext = file.name.split('.').pop() || 'jpg';
         fetch('/upload?ext=' + encodeURIComponent(ext), { method: 'POST', body: file })
           .then(function() {
-            imagem.setAttribute('href', '/uploads/image.' + ext);
+            imagem.src = '/uploads/image.' + ext;
             statusText.textContent = 'Imagem carregada: ' + file.name;
             salvarEstado();
           })
@@ -912,7 +919,7 @@
     function salvarEstado() {
       if (restaurando) return;
       try {
-        var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, resolucao: resolucao, duracao: timeline.duracao,
+        var state = { imagem: imagem.src, modoExibicao: modoExibicao, resolucao: resolucao, duracao: timeline.duracao,
           zoomEnabled: zoomEnabled, blurEnabled: blurEnabled, rotEnabled: rotEnabled, translEnabled: translEnabled, kfs: [],
           highlights: highlighter.toJSON() };
         for (var i = 0; i < keyframes.length; i++) {
@@ -928,7 +935,7 @@
     function aplicarEstado(st) {
       if (!st) return;
       try {
-        if (st.imagem) imagem.setAttribute('href', st.imagem);
+        if (st.imagem) imagem.src = st.imagem;
         if (st.modoExibicao !== undefined) { modoExibicao = st.modoExibicao; g('modoExibCheck').textContent = modoExibicao ? '\u2713' : ''; }
         if (st.duracao !== undefined) { timeline.duracao = st.duracao; g('duracaoSlide').value = timeline.duracao; }
         if (st.resolucao !== undefined) { resolucao = st.resolucao; g('selResolucao').value = resolucao; }

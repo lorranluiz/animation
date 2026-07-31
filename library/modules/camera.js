@@ -245,14 +245,17 @@ SVGAnim.Camera = (function () {
   };
 
   Camera.prototype.getCameraTransform = function () {
-    return 'perspective(' + this.perspective + 'px) ' +
-           'rotateX(' + this.rotationX.toFixed(2) + 'deg) ' +
-           'rotateY(' + this.rotationY.toFixed(2) + 'deg) ' +
-           'rotateZ(' + this.rotationZ.toFixed(2) + 'deg) ' +
-           'translate(' + this.zoomCenterX + 'px,' + this.zoomCenterY + 'px) ' +
+    return 'translate(' + this.zoomCenterX + 'px,' + this.zoomCenterY + 'px) ' +
+           'rotate(' + this.rotationZ.toFixed(2) + 'deg) ' +
            'scale(' + this.zoom + ') ' +
-           'translate(' + (-this.zoomCenterX) + 'px,' + (-this.zoomCenterY) + 'px) ' +
-           'translate(' + this.tx.toFixed(2) + 'px,' + this.ty.toFixed(2) + 'px)';
+           'translate(' + (-this.zoomCenterX + this.tx).toFixed(2) + 'px,' + (-this.zoomCenterY + this.ty).toFixed(2) + 'px)';
+  };
+
+  Camera.prototype.getImage3DTransform = function () {
+    var P = Math.max(150, this.perspective - Math.abs(this.rotationX) * 7);
+    return 'perspective(' + P + 'px) ' +
+           'rotateX(' + this.rotationX.toFixed(2) + 'deg) ' +
+           'rotateY(' + this.rotationY.toFixed(2) + 'deg)';
   };
 
   return Camera;

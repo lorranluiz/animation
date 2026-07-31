@@ -116,13 +116,27 @@ SVGAnim.Helpers = (function () {
   }
 
   /**
-   * Smoothstep ease-in-out: mapeia t (0→1) com suavização cúbica.
-   * f(0)=0, f(1)=1, f'(0)=0, f'(1)=0.
+   * Easing racional simétrico: f(0)=0, f(1)=1, f(0.5)=0.5, f'(0)=f'(1)=0.
+   *
+   * Curva:  t^a / (t^a + (1-t)^a)
+   *
+   * Propriedade: a velocidade máxima no centro (t=0.5) é igual a "a".
+   * Valores típicos do parâmetro EASING_A:
+   *
+   *   1.0   linear (sem easing)
+   *   1.5   ~smoothstep cúbico (3t² - 2t³)
+   *   2.0   centro pontiagudo moderado
+   *   3.0   centro bem acentuado
+   *   5.0   agressivo, quase todo movimento concentrado no meio
+   */
+  var EASING_A = 2.0;
+
+  /**
    * @param {number} t - Valor linear entre 0 e 1
    * @returns {number} Valor suavizado entre 0 e 1
    */
   function easeInOut(t) {
-    return -1.945 * t * t * t + 2.94 * t * t + 0.005 * t;
+    return Math.pow(t, EASING_A) / (Math.pow(t, EASING_A) + Math.pow(1 - t, EASING_A));
   }
 
   return {
