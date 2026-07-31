@@ -1142,11 +1142,11 @@ var SVGAnim = (function () {
     this.marks = {};
   }
 
-  Highlighter.prototype.addMark = function (kfIdx, path, thickness, totalLength) {
+  Highlighter.prototype.addMark = function (kfIdx, path, thickness, totalLength, color) {
     if (!this.marks[kfIdx]) this.marks[kfIdx] = [];
     this.marks[kfIdx].push({
       path: path, thickness: thickness,
-      color: 'rgba(255,255,0,0.4)', totalLength: totalLength || 100
+      color: color || 'rgba(255,255,0,0.4)', totalLength: totalLength || 100
     });
   };
 

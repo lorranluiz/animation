@@ -27,6 +27,72 @@ http.createServer((req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && req.url.startsWith('/upload')) {
+    const urlParts = new URL(req.url, 'http://localhost');
+    const ext = urlParts.searchParams.get('ext') || 'jpg';
+    const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '');
+    const chunks = [];
+    req.on('data', function(c) { chunks.push(c); });
+    req.on('end', function() {
+      try {
+        const buffer = Buffer.concat(chunks);
+        const uploadDir = path.join(ROOT, 'uploads');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+        const filePath = path.join(uploadDir, 'image.' + safeExt);
+        fs.writeFileSync(filePath, buffer);
+        console.log('Upload: image.' + safeExt + ' (' + buffer.length + ' bytes)');
+        res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+        res.end('ok');
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+        res.end('Erro ao salvar imagem');
+      }
+    });
+    req.on('error', function() {
+      res.writeHead(500, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+      res.end('Erro no upload');
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/state') {
+    const chunks = [];
+    req.on('data', function(c) { chunks.push(c); });
+    req.on('end', function() {
+      try {
+        const json = Buffer.concat(chunks).toString();
+        JSON.parse(json);
+        const uploadDir = path.join(ROOT, 'uploads');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+        const statePath = path.join(uploadDir, 'state.json');
+        fs.writeFileSync(statePath, json);
+        res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+        res.end('ok');
+      } catch(e) {
+        res.writeHead(400, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+        res.end('JSON invalido');
+      }
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/state') {
+    try {
+      const statePath = path.join(ROOT, 'uploads', 'state.json');
+      if (fs.existsSync(statePath)) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(fs.readFileSync(statePath));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end('{}');
+      }
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+      res.end('Erro ao ler state');
+    }
+    return;
+  }
+
   if (req.method === 'POST' && req.url.startsWith('/convert')) {
     const urlParts = new URL(req.url, 'http://localhost');
     const resParam = urlParts.searchParams.get('res') || 'full';

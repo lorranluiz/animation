@@ -35,6 +35,8 @@
 
   <g id="toolbars">
 
+  <circle id="penCursor" cx="0" cy="0" r="3" fill="rgba(255,255,0,0.3)" stroke="rgba(255,255,0,0.5)" stroke-width="1" display="none" pointer-events="none" />
+
   <rect id="overlayMouse" x="0" y="0" width="800" height="500" fill="none" pointer-events="visible" />
 
   <rect id="statusBg" x="0" y="0" width="800" height="42" fill="rgba(0,0,0,0.55)" />
@@ -80,8 +82,8 @@
     <text x="348" y="19" font-family="Arial, sans-serif" font-size="14" fill="#ccc" text-anchor="middle" dominant-baseline="middle">&#128465;</text>
   </g>
 
-  <!-- Cursor preview da caneta -->
-  <circle id="penCursor" cx="0" cy="0" r="3" fill="rgba(255,255,0,0.3)" stroke="rgba(255,255,0,0.5)" stroke-width="1" display="none" pointer-events="none" />
+
+
 
   <!-- Timeline -->
   <g id="timelineGroup">
@@ -128,9 +130,12 @@
     var highlighter = new SVGAnim.Highlighter();
     var canetaAtiva = false;
     var canetaThickness = 5;
+    var canetaColor = '#FFFF00';
+    var canetaOpacity = 0.4;
     var modoBorracha = false;
     var marcacaoAtiva = false;
     var cameraSaved = null;
+    var restaurando = false;
 
     function entrarModoMarcacao() {
       if (marcacaoAtiva) return;
@@ -147,12 +152,13 @@
       camada.style.transformOrigin = '0 0';
       atualizarHighlights(keyframes[kfIdx].tempo);
       g('panelHandle').setAttribute('display', 'inline');
-      g('penCursor').setAttribute('display', 'inline');
+      H.get('overlayMouse').style.cursor = 'none';
     }
 
     function sairModoMarcacao() {
       if (!marcacaoAtiva || !cameraSaved) return;
       if (imagemNaFrente) toggleCamadas();
+      H.get('overlayMouse').style.cursor = '';
       g('panelHandle').setAttribute('display', 'none');
       g('penCursor').setAttribute('display', 'none');
       marcacaoAtiva = false;
@@ -255,6 +261,26 @@
 
     function g(id) { return document.getElementById(id); }
 
+    var penCursorEl = null;
+
+    function atualizarPenCursorColor() {
+      if (!penCursorEl) penCursorEl = document.getElementById('penCursor');
+      if (!penCursorEl) return;
+      var c = canetaColor, op = canetaOpacity;
+      var r = parseInt(c.slice(1,3), 16), g = parseInt(c.slice(3,5), 16), b = parseInt(c.slice(5,7), 16);
+      var fill = 'rgba(' + r + ',' + g + ',' + b + ',' + (op * 0.6) + ')';
+      var stroke = 'rgba(' + r + ',' + g + ',' + b + ',' + op + ')';
+      if (modoBorracha) { fill = 'rgba(255,0,0,0.3)'; stroke = '#F44336'; }
+      penCursorEl.setAttribute('fill', fill);
+      penCursorEl.setAttribute('stroke', stroke);
+    }
+
+    function corCanetaRGBA(op) {
+      var c = canetaColor, opacity = op !== undefined ? op : canetaOpacity;
+      var r = parseInt(c.slice(1,3), 16), g = parseInt(c.slice(3,5), 16), b = parseInt(c.slice(5,7), 16);
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + opacity + ')';
+    }
+
     /* ====== DOM DO KEYFRAME ====== */
 
     function criarKeyframeDOM(i) {
@@ -344,7 +370,7 @@
 
     function lerSliders() {
       var kf = keyframes[kfIdx], el;
-      kf.zoom = (el = g('zoomSlide')) ? (el.value / 10) : 1.0;
+      kf.zoom = (el = g('zoomSlide')) ? parseFloat(el.value) : 1.0;
       kf.blur = parseInt((el = g('blurSlide')) ? el.value : 7);
       kf.rotationX = parseInt((el = g('pitchSlide')) ? el.value : 0);
       kf.rotationY = parseInt((el = g('yawSlide')) ? el.value : 0);
@@ -383,24 +409,24 @@
 
     function atualizarSliderLabels() {
       var el;
-      if ((el = g('zoomSlide'))) g('lblZoom').textContent = (el.value/10).toFixed(1);
-      if ((el = g('blurSlide'))) g('lblBlur').textContent = el.value;
-      if ((el = g('pitchSlide'))) g('lblPitch').textContent = el.value;
-      if ((el = g('yawSlide'))) g('lblYaw').textContent = el.value;
-      if ((el = g('rollSlide'))) g('lblRoll').textContent = el.value;
-      if ((el = g('txSlide'))) g('lblTx').textContent = el.value;
-      if ((el = g('tySlide'))) g('lblTy').textContent = el.value;
-      timeline.syncDuracaoSlider(g('duracaoSlide'), g('lblDuracao'));
+      if ((el = g('zoomSlide'))) g('valZoom').value = parseFloat(el.value).toFixed(1);
+      if ((el = g('blurSlide'))) g('valBlur').value = parseFloat(el.value);
+      if ((el = g('pitchSlide'))) g('valPitch').value = el.value;
+      if ((el = g('yawSlide'))) g('valYaw').value = el.value;
+      if ((el = g('rollSlide'))) g('valRoll').value = el.value;
+      if ((el = g('txSlide'))) g('valTx').value = el.value;
+      if ((el = g('tySlide'))) g('valTy').value = el.value;
+      timeline.syncDuracaoSlider(g('duracaoSlide'), g('valDuracao'));
     }
 
     function carregarSlidersDoKeyframe(kf) {
-      g('zoomSlide').value = Math.round(kf.zoom * 10);
-      g('blurSlide').value = Math.round(kf.blur);
-      g('pitchSlide').value = Math.round(kf.rotationX);
-      g('yawSlide').value = Math.round(kf.rotationY);
-      g('rollSlide').value = Math.round(kf.rotationZ);
-      g('txSlide').value = Math.round(kf.tx);
-      g('tySlide').value = Math.round(kf.ty);
+      g('zoomSlide').value = kf.zoom; g('valZoom').value = kf.zoom.toFixed(1);
+      g('blurSlide').value = Math.round(kf.blur); g('valBlur').value = Math.round(kf.blur);
+      g('pitchSlide').value = Math.round(kf.rotationX); g('valPitch').value = Math.round(kf.rotationX);
+      g('yawSlide').value = Math.round(kf.rotationY); g('valYaw').value = Math.round(kf.rotationY);
+      g('rollSlide').value = Math.round(kf.rotationZ); g('valRoll').value = Math.round(kf.rotationZ);
+      g('txSlide').value = Math.round(kf.tx); g('valTx').value = Math.round(kf.tx);
+      g('tySlide').value = Math.round(kf.ty); g('valTy').value = Math.round(kf.ty);
       atualizarSliderLabels();
     }
 
@@ -556,9 +582,16 @@
     H.get('btnUpload').addEventListener('click', function() { var fi = g('fileInput'); if (fi) fi.click(); });
 
     H.get('btnSave').addEventListener('click', function() {
-      lerSliders(); salvarEstado();
-      var json = localStorage.getItem('SVG_ZOOM_STATE');
-      if (!json) { statusText.textContent = 'Nada para salvar.'; return; }
+      lerSliders();
+      var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, resolucao: resolucao, duracao: timeline.duracao,
+        zoomEnabled: zoomEnabled, blurEnabled: blurEnabled, rotEnabled: rotEnabled, translEnabled: translEnabled, kfs: [],
+        highlights: highlighter.toJSON() };
+      for (var i = 0; i < keyframes.length; i++) {
+        var k = keyframes[i];
+        state.kfs.push({ tempo: k.tempo, zoom: k.zoom, blur: k.blur, rotationX: k.rotationX, rotationY: k.rotationY,
+          rotationZ: k.rotationZ, tx: k.tx, ty: k.ty, perspective: k.perspective });
+      }
+      var json = JSON.stringify(state);
       var blob = new Blob([json], { type: 'application/json' });
       var url = URL.createObjectURL(blob);
       var a = document.createElementNS('http://www.w3.org/1999/xhtml', 'a');
@@ -566,6 +599,7 @@
       document.documentElement.appendChild(a); a.click();
       document.documentElement.removeChild(a); URL.revokeObjectURL(url);
       statusText.textContent = 'Projeto salvo como projeto-animacao.json';
+      salvarEstado();
     });
 
     H.get('btnOpen').addEventListener('click', function() {
@@ -579,8 +613,9 @@
         r.onload = function(ev) {
           try {
             var data = JSON.parse(ev.target.result);
-            localStorage.setItem('SVG_ZOOM_STATE', JSON.stringify(data));
-            location.reload();
+            fetch('/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+              .then(function() { location.reload(); })
+              .catch(function(ex) { statusText.textContent = 'Arquivo inválido: ' + ex.message; });
           } catch(ex) {
             statusText.textContent = 'Arquivo inválido.';
           }
@@ -592,11 +627,10 @@
     H.get('btnReset').addEventListener('click', function() {
       if (rodando) return;
       if (!confirm('Apagar todas as configurações e voltar ao padrão?')) return;
-      try { localStorage.removeItem('SVG_ZOOM_STATE'); } catch(e) {}
-      keyframes = [
-        new KF({ tempo: 0, zoom: 1.0, blur: 7, rotationX: -25, rotationY: 15 }),
-        new KF({ tempo: 5, zoom: 1.5, blur: 0, rotationX: 0, rotationY: 0 })
-      ];
+      keyframes.length = 0;
+      keyframes.push(new KF({ tempo: 0, zoom: 1.0, blur: 7, rotationX: -25, rotationY: 15 }));
+      keyframes.push(new KF({ tempo: 5, zoom: 1.5, blur: 0, rotationX: 0, rotationY: 0 }));
+      timeline.keyframes = keyframes;
       timeline.setDuracao(10); g('duracaoSlide').value = 10;
       zoomEnabled = true; blurEnabled = true; rotEnabled = true; translEnabled = true;
       g('chkZoom').checked = true; g('chkBlur').checked = true; g('chkRot').checked = true; g('chkTransl').checked = true;
@@ -608,7 +642,7 @@
       atualizarSelecaoKeyframes();
       aplicarValoresAtuais();
       statusText.textContent = 'Configurações resetadas — pressione ▶ PLAY';
-      salvarEstado();
+      fetch('/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     });
 
     var mediaRecorder = null;
@@ -697,9 +731,14 @@
     document.addEventListener('change', function(e) {
       if (e.target && e.target.id === 'fileInput') {
         var file = e.target.files[0]; if (!file) return;
-        var r = new FileReader();
-        r.onload = function(ev) { imagem.setAttribute('href', ev.target.result); statusText.textContent = 'Imagem carregada: ' + file.name; salvarEstado(); };
-        r.readAsDataURL(file);
+        var ext = file.name.split('.').pop() || 'jpg';
+        fetch('/upload?ext=' + encodeURIComponent(ext), { method: 'POST', body: file })
+          .then(function() {
+            imagem.setAttribute('href', '/uploads/image.' + ext);
+            statusText.textContent = 'Imagem carregada: ' + file.name;
+            salvarEstado();
+          })
+          .catch(function(err) { statusText.textContent = 'Erro no upload: ' + err.message; });
       }
     });
 
@@ -719,6 +758,14 @@
       if (e.code === 'ArrowRight') { e.preventDefault(); if (!rodando) { if (kfIdx < keyframes.length - 1) selecionarKF(kfIdx + 1); } }
       if (e.code === 'Space') { e.preventDefault(); iniciar(); }
       if (e.code === 'Tab') { e.preventDefault(); if (marcacaoAtiva && !modoBorracha) toggleCamadas(); }
+    });
+
+    H.get('overlayMouse').addEventListener('mouseenter', function(e) {
+      if (marcacaoAtiva) g('penCursor').setAttribute('display', 'inline');
+    });
+
+    H.get('overlayMouse').addEventListener('mouseleave', function(e) {
+      if (marcacaoAtiva) g('penCursor').setAttribute('display', 'none');
     });
 
     H.get('overlayMouse').addEventListener('mousedown', function(e) {
@@ -770,7 +817,7 @@
         var p = document.createElementNS(H.SVG_NS, 'path');
         p.setAttribute('id', 'drawingPreview');
         p.setAttribute('d', drawingPath);
-        p.setAttribute('stroke', 'rgba(255,255,0,0.5)');
+        p.setAttribute('stroke', corCanetaRGBA(0.5));
         p.setAttribute('stroke-width', canetaThickness);
         p.setAttribute('fill', 'none');
         p.setAttribute('stroke-linecap', 'round');
@@ -842,7 +889,7 @@
       if (drawingPath) {
         var dp = g('drawingPreview');
         var totalL = dp ? dp.getTotalLength() : drawingPath.length * 2;
-        highlighter.addMark(kfIdx, drawingPath, canetaThickness, totalL);
+        highlighter.addMark(kfIdx, drawingPath, canetaThickness, totalL, corCanetaRGBA());
         drawingPath = ''; drawingPoints = [];
         if (dp) dp.parentNode.removeChild(dp);
         g('penCursor').setAttribute('display', 'none');
@@ -857,12 +904,13 @@
     H.get('overlayMouse').addEventListener('wheel', function(e) {
       if (rodando || !e.ctrlKey) return; e.preventDefault();
       var d = e.deltaY < 0 ? 1 : -1;
-      keyframes[kfIdx].zoom = Math.max(1.0, Math.min(3.0, keyframes[kfIdx].zoom + d * 0.1));
-      g('zoomSlide').value = Math.round(keyframes[kfIdx].zoom * 10);
+      keyframes[kfIdx].zoom = Math.max(0.1, keyframes[kfIdx].zoom + d * 0.1);
+      g('zoomSlide').value = keyframes[kfIdx].zoom;
       atualizarSliderLabels(); aplicarValoresAtuais(); salvarEstado();
     });
 
     function salvarEstado() {
+      if (restaurando) return;
       try {
         var state = { imagem: imagem.getAttribute('href'), modoExibicao: modoExibicao, resolucao: resolucao, duracao: timeline.duracao,
           zoomEnabled: zoomEnabled, blurEnabled: blurEnabled, rotEnabled: rotEnabled, translEnabled: translEnabled, kfs: [],
@@ -872,14 +920,14 @@
           state.kfs.push({ tempo: k.tempo, zoom: k.zoom, blur: k.blur, rotationX: k.rotationX, rotationY: k.rotationY,
             rotationZ: k.rotationZ, tx: k.tx, ty: k.ty, perspective: k.perspective });
         }
-        localStorage.setItem('SVG_ZOOM_STATE', JSON.stringify(state));
-      } catch(e) {}
+        fetch('/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state) })
+          .catch(function(e) { statusText.textContent = 'Erro ao salvar: ' + e.message; });
+      } catch(e) { statusText.textContent = 'Erro ao salvar: ' + e.message; }
     }
 
-    function carregarEstado() {
+    function aplicarEstado(st) {
+      if (!st) return;
       try {
-        var json = localStorage.getItem('SVG_ZOOM_STATE'); if (!json) return;
-        var st = JSON.parse(json);
         if (st.imagem) imagem.setAttribute('href', st.imagem);
         if (st.modoExibicao !== undefined) { modoExibicao = st.modoExibicao; g('modoExibCheck').textContent = modoExibicao ? '\u2713' : ''; }
         if (st.duracao !== undefined) { timeline.duracao = st.duracao; g('duracaoSlide').value = timeline.duracao; }
@@ -890,10 +938,11 @@
         if (st.rotEnabled !== undefined) rotEnabled = st.rotEnabled;
         if (st.translEnabled !== undefined) translEnabled = st.translEnabled;
         if (st.kfs && st.kfs.length >= 2) {
-          keyframes = [];
+          keyframes.length = 0;
           for (var i = 0; i < st.kfs.length; i++) keyframes.push(new KF(st.kfs[i]));
+          timeline.keyframes = keyframes;
         }
-      } catch(e) {}
+      } catch(e) { statusText.textContent = 'Erro ao carregar estado: ' + e.message; }
     }
 
     function reposicionarTodosDots() {
@@ -907,6 +956,15 @@
       var sls = document.querySelectorAll('input[type=range], input[type=checkbox]');
       for (var i = 0; i < sls.length; i++) {
         sls[i].addEventListener('input', function() { lerSliders(); atualizarSliderLabels(); atualizarSelecaoKeyframes(); reposicionarTodosDots(); salvarEstado(); });
+      }
+      var nums = document.querySelectorAll('#valZoom,#valBlur,#valPitch,#valYaw,#valRoll,#valTx,#valTy,#valDuracao');
+      for (var j = 0; j < nums.length; j++) {
+        nums[j].addEventListener('input', function() {
+          var idMap = { valZoom:'zoomSlide', valBlur:'blurSlide', valPitch:'pitchSlide', valYaw:'yawSlide', valRoll:'rollSlide', valTx:'txSlide', valTy:'tySlide', valDuracao:'duracaoSlide' };
+          var sliderId = idMap[this.id];
+          if (sliderId) { var s = g(sliderId); if (s) s.value = this.value; }
+          lerSliders(); atualizarSliderLabels(); atualizarSelecaoKeyframes(); reposicionarTodosDots(); salvarEstado();
+        });
       }
       g('btnAddKF').addEventListener('click', addKeyframe);
       g('btnDelKF').addEventListener('click', removeKeyframe);
@@ -929,22 +987,31 @@
           btn.children[0].setAttribute('stroke', '#388E3C');
           btn.children[1].setAttribute('fill', '#fff');
           entrarModoMarcacao();
+          atualizarPenCursorColor();
         } else {
           btn.children[0].setAttribute('fill', '#555');
           btn.children[0].setAttribute('stroke', '#777');
           btn.children[1].setAttribute('fill', '#ccc');
           sairModoMarcacao();
-          g('penCursor').setAttribute('display', 'none');
         }
         g('penRow').style.display = canetaAtiva ? 'flex' : 'none';
-        g('penCursor').setAttribute('stroke', 'rgba(255,255,0,0.5)');
-        g('penCursor').setAttribute('fill', 'rgba(255,255,0,0.3)');
       });
 
       g('penThickness').addEventListener('input', function() {
         canetaThickness = parseFloat(this.value);
         g('lblPenThickness').textContent = canetaThickness;
         g('penCursor').setAttribute('r', canetaThickness / 2);
+      });
+
+      g('penColor').addEventListener('input', function() {
+        canetaColor = this.value;
+        atualizarPenCursorColor();
+      });
+
+      g('penOpacity').addEventListener('input', function() {
+        canetaOpacity = parseInt(this.value) / 100;
+        g('lblPenOpacity').textContent = canetaOpacity.toFixed(2);
+        atualizarPenCursorColor();
       });
 
       g('btnEraser').addEventListener('click', function() {
@@ -955,15 +1022,12 @@
           er.children[0].setAttribute('fill', '#F44336');
           er.children[0].setAttribute('stroke', '#C62828');
           er.children[1].setAttribute('fill', '#fff');
-          g('penCursor').setAttribute('stroke', '#F44336');
-          g('penCursor').setAttribute('fill', 'rgba(255,0,0,0.3)');
         } else {
           er.children[0].setAttribute('fill', '#555');
           er.children[0].setAttribute('stroke', '#777');
           er.children[1].setAttribute('fill', '#fff');
-          g('penCursor').setAttribute('stroke', 'rgba(255,255,0,0.5)');
-          g('penCursor').setAttribute('fill', 'rgba(255,255,0,0.3)');
         }
+        atualizarPenCursorColor();
       });
       g('selResolucao').addEventListener('change', function() {
         resolucao = this.value;
@@ -976,20 +1040,28 @@
     function initQuandoPronto() {
       if (panelReady) return; if (!g('zoomSlide')) return;
       panelReady = true;
-      carregarEstado();
-      setupSliderListeners();
-      g('chkZoom').checked = zoomEnabled; g('chkBlur').checked = blurEnabled;
-      g('chkRot').checked = rotEnabled; g('chkTransl').checked = translEnabled;
-      reconstruirTodosKeyframesDOM();
-      kfIdx = 0; carregarSlidersDoKeyframe(keyframes[0]);
-      atualizarSelecaoKeyframes(); aplicarValoresAtuais();
-      aplicarLetterbox();
+      restaurando = true;
+      fetch('/state')
+        .then(function(r) { return r.json(); })
+        .then(function(st) { if (st && st.imagem) aplicarEstado(st); })
+        .catch(function() {})
+        .then(function() {
+          setupSliderListeners();
+          g('chkZoom').checked = zoomEnabled; g('chkBlur').checked = blurEnabled;
+          g('chkRot').checked = rotEnabled; g('chkTransl').checked = translEnabled;
+          carregarSlidersDoKeyframe(keyframes[0]);
+          reconstruirTodosKeyframesDOM();
+          kfIdx = 0;
+          atualizarSelecaoKeyframes(); aplicarValoresAtuais();
+          aplicarLetterbox();
+          restaurando = false;
 
-      H.get('modoExibicao').addEventListener('click', function() {
-        modoExibicao = !modoExibicao;
-        g('modoExibCheck').textContent = modoExibicao ? '\u2713' : '';
-        salvarEstado();
-      });
+          H.get('modoExibicao').addEventListener('click', function() {
+            modoExibicao = !modoExibicao;
+            g('modoExibCheck').textContent = modoExibicao ? '\u2713' : '';
+            salvarEstado();
+          });
+        });
     }
     setTimeout(initQuandoPronto, 200);
     var poll = setInterval(function() { if (!panelReady) initQuandoPronto(); else clearInterval(poll); }, 100);
@@ -998,7 +1070,7 @@
     atualizarStatus();
   ]]></script>
 
-  <foreignObject x="0" y="390" width="800" height="120">
+  <foreignObject x="0" y="390" width="800" height="130">
     <div xmlns="http://www.w3.org/1999/xhtml" id="painelControles" style="
       font-family: Arial, sans-serif; font-size: 11px; color: #eee;
       background: rgba(20,20,20,0.85); padding: 4px 8px;
@@ -1022,39 +1094,39 @@
       <div class="row">
         <label class="chk"><input type="checkbox" id="chkZoom" checked="checked" />Zoom</label>
         <span class="lbl">Zoom</span>
-        <input type="range" id="zoomSlide" min="10" max="30" value="10" step="1" />
-        <span class="val" id="lblZoom">1.0</span>
+        <input type="range" id="zoomSlide" min="0.1" max="10" value="1" step="0.1" />
+        <input type="number" id="valZoom" value="1.0" step="0.1" min="0.1" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;" />
         <label class="chk"><input type="checkbox" id="chkBlur" checked="checked" />Blur</label>
         <span class="lbl">Blur</span>
-        <input type="range" id="blurSlide" min="0" max="15" value="7" step="1" />
-        <span class="val" id="lblBlur">7</span>
+        <input type="range" id="blurSlide" min="0" max="15" value="7" step="0.5" />
+        <input type="number" id="valBlur" value="7" step="0.5" min="0" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;" />
       </div>
 
       <div class="row">
         <label class="chk"><input type="checkbox" id="chkRot" checked="checked" />Rot3D</label>
         <span class="lbl">Pitch</span>
         <input type="range" id="pitchSlide" min="-90" max="90" value="-25" step="1" />
-        <span class="val" id="lblPitch">-25</span>
+        <input type="number" id="valPitch" value="-25" step="1" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;" />
         <span class="lbl">Yaw</span>
         <input type="range" id="yawSlide" min="-90" max="90" value="15" step="1" />
-        <span class="val" id="lblYaw">15</span>
+        <input type="number" id="valYaw" value="15" step="1" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;" />
         <span class="lbl">Roll</span>
         <input type="range" id="rollSlide" min="-90" max="90" value="0" step="1" />
-        <span class="val" id="lblRoll">0</span>
+        <input type="number" id="valRoll" value="0" step="1" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;" />
       </div>
 
       <div class="row">
         <label class="chk"><input type="checkbox" id="chkTransl" checked="checked" />Trans</label>
         <span class="lbl">Tx</span>
         <input type="range" id="txSlide" min="-300" max="300" value="0" step="1" />
-        <span class="val" id="lblTx">0</span>
+        <input type="number" id="valTx" value="0" step="1" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;" />
         <span class="lbl">Ty</span>
         <input type="range" id="tySlide" min="-300" max="300" value="0" step="1" />
-        <span class="val" id="lblTy">0</span>
+        <input type="number" id="valTy" value="0" step="1" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;" />
         <span style="min-width:8px"></span>
         <span class="lbl">Duração</span>
         <input type="range" id="duracaoSlide" min="1" max="30" value="10" step="1" />
-        <span class="val" id="lblDuracao">10s</span>
+        <input type="number" id="valDuracao" value="10" step="1" min="1" style="width:58px;text-align:right;background:#333;color:#FFD700;border:1px solid #555;font-size:11px;" />
         <span class="lbl" style="min-width:14px;font-size:10px;color:#aaa;">Res</span>
         <select id="selResolucao" style="background:#444;color:#eee;border:1px solid #666;border-radius:2px;font-size:11px;padding:1px 2px;">
           <option value="full">Full</option>
@@ -1071,6 +1143,11 @@
         <span class="lbl">Esp.</span>
         <input type="range" id="penThickness" min="1" max="20" value="5" step="0.5" />
         <span class="val" id="lblPenThickness">5</span>
+        <span class="lbl">Cor</span>
+        <input type="color" id="penColor" value="#FFFF00" style="width:24px;height:18px;padding:0;border:none;cursor:pointer;" />
+        <span class="lbl">Opac.</span>
+        <input type="range" id="penOpacity" min="5" max="100" value="40" step="5" />
+        <span class="val" id="lblPenOpacity">0.40</span>
       </div>
     </div>
   </foreignObject>
